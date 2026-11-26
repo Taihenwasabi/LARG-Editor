@@ -47,15 +47,14 @@ LARG（Live Action Role Game，真人实景角色扮演）类剧本游戏的创�
 
 ## 构建
 
-尚未搭建。目标形态：
+需要 Flutter 3.41+ / Dart 3.11+。
 
 ```
-flutter create --platforms=windows,macos,linux .
 flutter pub get
 flutter run -d windows
 ```
 
-打包（待验证）：
+打包：
 
 ```
 flutter build windows --release
@@ -63,9 +62,31 @@ flutter build macos --release
 flutter build linux --release
 ```
 
+## 验证
+
+引擎是纯 Dart、零 flutter 依赖，可以脱离 App 独立验证：
+
+```
+dart run tool/verify_engine.dart          # 扫 gamepacks/ 并打印分步解析日志
+dart run tool/verify_engine.dart <根目录>  # 指定目录
+flutter test                              # 包格式契约测试
+flutter analyze                           # 静态分析
+```
+
+`gamepacks/` 里带两个可直接解析的示例包：`localDemo`（最小包，无素材）与 `larg`（六幕完整剧情，素材全部自制）。
+
 ## 目录
 
 ```
+lib/engine/          游戏包解析引擎（纯 Dart，零 flutter 依赖）
+  model/             数据模型
+  parse/             各解析器（manifest / stage / check / item / asset / glb / mp4）
+  source/            来源抽象（文件系统 / 内存）
+  security/          资格校验与来源判定
+lib/model/           与格式相关的纯逻辑（物品、校验配置）
+tool/verify_engine.dart  引擎自检脚本
+test/                包格式契约测试
+gamepacks/           随仓库分发的示例包
 AGENTS.md            协作规则 + 本项目约束
 PACK_FORMAT.md       游戏包格式契约（唯一权威）
 LARG_Editor规划.md   立项与里程碑规划

@@ -1,0 +1,8 @@
+{
+  "id": "label",
+  "name": "异常件面单",
+  "kind": "image",
+  "initial": 1,
+  "description": "寄件人和收件人写的是同一个人，寄出日期是明天，今天却已经躺在传送带上。",
+  "asset": "assets/picture/异常件面单.png"
+}

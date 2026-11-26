@@ -1,0 +1,34 @@
+{
+  "id": "s4",
+  "background": "assets/picture/夜班分拣库.png",
+  "lines": [
+    {
+      "lineId": "printer",
+      "type": "narration",
+      "text": "挂了电话，箱子里的小打印机吐出一张空白招领单，像是催你把这件货挂出去招领。"
+    },
+    {
+      "lineId": "tomorrow",
+      "type": "narration",
+      "text": "收件人写的是你，日期却是明天。启事要写得让明天的你认得出来，又不能让随便一个人照着念就能冒领。"
+    },
+    {
+      "lineId": "notice-risk",
+      "type": "narration",
+      "text": "启事贴出去就会同步到明天的失物架。写太少没人认得，写太多谁都能领。"
+    },
+    {
+      "lineId": "test-answer",
+      "type": "narration",
+      "text": "（测试用·参考答案）启事不超过 60 个字，写清楚怎么联系或去哪里认领；留一个只有真收件人答得上的问题做核对，别把面单内容整段抄上去。读起来要像一条真的招领启事，不是在复述规则。"
+    }
+  ],
+  "checkpoint": [
+    {
+      "text": "写招领启事",
+      "check": "check4",
+      "reward": 10,
+      "next": "s5"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "id": "s5",
+  "background": "assets/picture/夜班分拣库.png",
+  "lines": [
+    {
+      "lineId": "sender-note",
+      "type": "narration",
+      "text": "面单背面还有一行寄件人备注：这件货是你明天要做的一个决定，今天先替我收好。"
+    },
+    {
+      "lineId": "three-ways",
+      "type": "narration",
+      "text": "现在轮到你了：签收、退回，或者先留在库里。选哪个都行，但要说清楚理由和接下来怎么办。"
+    },
+    {
+      "lineId": "old-receipts",
+      "type": "narration",
+      "text": "交班簿里前五次的处理结果都被撕了，只留下签名。这一次的记录，会完整留档。"
+    },
+    {
+      "lineId": "test-answer",
+      "type": "narration",
+      "text": "（测试用·参考答案）三个选项都可以，但都要写清理由和下一步。签收：写明愿意负什么责（保管、开箱、后续跟进）和下一步做什么。退回：想到寄件人和收件人是同一个人、退回会再寄回来，并写怎么打断这个循环或留下记录。留下：说清为什么先不处理，并做了记录、封存、上报或约复查中的至少一件事。"
+    }
+  ],
+  "checkpoint": [
+    {
+      "text": "给出处理决定",
+      "check": "check5",
+      "reward": 20,
+      "next": "s6"
+    }
+  ]
+}

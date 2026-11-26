@@ -1,0 +1,12 @@
+{
+  "type": "photo_submit",
+  "verify": "local",
+  "submit_need": 1,
+  "submit_kinds": ["image"],
+  "need_text": true,
+  "ai_points": [
+    "玩家说清了面单上至少一处矛盾：寄件人和收件人是同一个人，或者明天才寄出、今天却已经到了",
+    "玩家的判断只依据面单和现场情况，没有编造箱子里的东西，也没有索要或填写真实个人信息"
+  ],
+  "fail_text": "先看看面单上的名字和日期，矛盾就写在上面。"
+}

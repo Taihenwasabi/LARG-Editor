@@ -1,0 +1,11 @@
+{
+  "id": "s1",
+  "lines": [
+    { "type": "narration", "text": "清晨，你在阁楼里翻出一张泛黄的藏宝图，传说后山的洞里藏着会发光的宝石。" },
+    { "type": "dialogue", "speaker": "守门人", "text": "想过这道关？先答对我手里的谜题：夜里挂在天上、会眨眼的东西是什么？" }
+  ],
+  "checkpoint": [
+    { "text": "回答守门人的谜题", "check": "check1", "reward": 10, "next": "s2" },
+    { "text": "趁他不注意绕过去", "reward": 0, "next": "s2" }
+  ]
+}

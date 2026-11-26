@@ -1,0 +1,17 @@
+{
+  "id": "s6",
+  "background": "assets/picture/夜班分拣库.png",
+  "lines": [
+    {
+      "lineId": "receipt",
+      "type": "narration",
+      "text": "回执打印出来，落进你的物品栏。再看面单，上面多了一行小字：处理员已读，明天轮到你寄出。"
+    },
+    {
+      "lineId": "loop",
+      "type": "narration",
+      "text": "零点的钟响了。你这才明白，交班簿上那五个被撕掉的签名，是前五个夜班留下的。今晚这份记录，终于完整留了下来。"
+    }
+  ],
+  "checkpoint": []
+}

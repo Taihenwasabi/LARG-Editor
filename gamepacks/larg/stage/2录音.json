@@ -1,0 +1,35 @@
+{
+  "id": "s2",
+  "background": "assets/picture/夜班分拣库.png",
+  "lines": [
+    {
+      "lineId": "recorder",
+      "type": "narration",
+      "text": "打开纸箱，里面只有一支录音笔，已经登记进物品栏。听完再填转运单。",
+      "audio": "assets/audio/录音笔留言.wav"
+    },
+    {
+      "lineId": "listen",
+      "type": "narration",
+      "text": "录音里先响三声铃，然后是火车汽笛，最后一遍失物招领广播，催旅客去认领一件明天才到的行李。"
+    },
+    {
+      "lineId": "destination",
+      "type": "narration",
+      "text": "转运单上没有城市栏，只有一行字：声音指向哪里，就送到哪里。把录音选上去，写清你的理由。"
+    },
+    {
+      "lineId": "test-answer",
+      "type": "narration",
+      "text": "（测试用·参考答案）目的地是火车站或铁路失物招领处一类的地方。录音里能用的线索：开头三声铃、火车汽笛、失物招领广播。录音里没说过的城市名、车次、人名不要当成事实，说不准就承认说不准。"
+    }
+  ],
+  "checkpoint": [
+    {
+      "text": "填转运单",
+      "check": "check2",
+      "reward": 10,
+      "next": "s3"
+    }
+  ]
+}

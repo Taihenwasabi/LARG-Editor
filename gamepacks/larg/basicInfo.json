@@ -1,0 +1,20 @@
+{
+  "gameName": "异常件 0000",
+  "Id": "g-official-larg-0000",
+  "official": "yes",
+  "Introduction": "夜班分拣员收到一件怪包裹：寄件人和收件人都是自己，寄出日期却是明天。查面单、听录音、接电话、写招领、做处理，五步把它弄明白。",
+  "buttonCoordinates": [
+    { "id": 1, "x": 300, "y": 650 },
+    { "id": 2, "x": 620, "y": 390 },
+    { "id": 3, "x": 930, "y": 650 },
+    { "id": 4, "x": 1260, "y": 390 },
+    { "id": 5, "x": 1510, "y": 650 }
+  ],
+  "price": "0",
+  "createTime": "2026.11.7",
+  "ageAppropriateness": "12+",
+  "PublicKey": "LARG-0000-PUBLIC",
+  "artStyle": "midnightMailroom",
+  "points": "线索点",
+  "map": "assets/picture/夜班分拣库.png"
+}

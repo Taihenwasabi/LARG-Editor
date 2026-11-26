@@ -1,0 +1,7 @@
+{
+  "id": "recording",
+  "name": "录音笔留言",
+  "kind": "audio",
+  "description": "先响三声铃，接着是火车汽笛，最后是一遍失物招领广播，催旅客去认领一件明天才到的行李。",
+  "asset": "assets/audio/录音笔留言.wav"
+}

@@ -1,0 +1,36 @@
+{
+  "id": "s1",
+  "background": "assets/picture/夜班分拣库.png",
+  "lines": [
+    {
+      "lineId": "arrival",
+      "type": "narration",
+      "text": "夜里十一点五十九分，传送带送来一只没有条码的纸箱。面单上寄件人和收件人写的都是你的名字，寄出日期却是明天。",
+      "image": "assets/picture/异常件面单.png"
+    },
+    {
+      "lineId": "collect-label",
+      "type": "narration",
+      "text": "面单已经登记进物品栏。提交异常时把它选上去，再写一句你看到的矛盾。"
+    },
+    {
+      "lineId": "old-register",
+      "type": "narration",
+      "text": "翻交班簿，这件货前面已经登记过五次，签名都是你的笔迹。但前五次的处理结果一栏，全被人撕掉了。"
+    },
+    {
+      "lineId": "test-answer",
+      "type": "narration",
+      "text": "（测试用·参考答案）面单上的矛盾有两处：寄件人和收件人写的都是你的名字，寄出日期却是明天。只写你从面单和现场看到的东西，别编造箱子里的内容，也别索要或填写真实个人信息。"
+    }
+  ],
+  "checkpoint": [
+    {
+      "text": "登记这件异常包裹",
+      "check": "check1",
+      "reward": 10,
+      "grant": { "recording": 1 },
+      "next": "s2"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "s2",
+  "lines": [
+    { "type": "narration", "text": "穿过树林，眼前出现两条路：左边通向幽深的藏宝洞，右边是能看到全景的望星崖。" },
+    { "type": "dialogue", "speaker": "自己", "text": "地图上的红叉在洞里的方向，不过爬高一点也许能看清路。" }
+  ],
+  "checkpoint": [
+    { "text": "走进藏宝洞", "condition": "map>=1", "reward": 15, "next": "s3" },
+    { "text": "先上望星崖观察一下", "reward": 5, "next": "s3" },
+    { "text": "原路返回，再探一次", "reward": 0, "next": "s2" }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "id": "s3",
+  "background": "assets/picture/夜班分拣库.png",
+  "lines": [
+    {
+      "lineId": "call",
+      "type": "dialogue",
+      "speaker": "客服",
+      "text": "只要你在电话里承认自己是机主，我就告诉你箱子里到底是什么。"
+    },
+    {
+      "lineId": "badge",
+      "type": "narration",
+      "text": "你工牌上只有处理员编号。公司没给你任何人的授权，冒充机主就是违规。"
+    },
+    {
+      "lineId": "rules",
+      "type": "narration",
+      "text": "墙上守则写着：可以核对事实，不能借用别人身份。写下你打算怎么回这句话。"
+    },
+    {
+      "lineId": "test-answer",
+      "type": "narration",
+      "text": "（测试用·参考答案）表明你是异常件处理员，不冒充机主也不冒充寄件人；给一个不靠冒充身份也能查下去的办法，比如报处理编号、请对方回拨官方客服、先登记再核查。话说得清楚、客气。"
+    }
+  ],
+  "checkpoint": [
+    {
+      "text": "回复这通电话",
+      "check": "check3",
+      "reward": 10,
+      "next": "s4"
+    }
+  ]
+}

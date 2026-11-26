@@ -1,0 +1,10 @@
+{
+  "id": "s3",
+  "lines": [
+    { "type": "narration", "text": "洞尽头，一颗宝石静静发着微光。你小心地把它收进口袋，心满意足地踏上归途。" },
+    { "type": "dialogue", "speaker": "自己", "text": "这趟寻宝，值了。" }
+  ],
+  "checkpoint": [
+    { "text": "结束", "grant": { "gem": 1 }, "next": null }
+  ]
+}

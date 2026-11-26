@@ -1,0 +1,16 @@
+{
+  "gameName": "本地示例：寻宝之旅",
+  "Id": "g-local-demo-treasure-0001",
+  "official": "no",
+  "Introduction": "一个纯本地的最小游戏包示例：三幕剧情 + 本地文本校验，演示 basicInfo / stage / check 的结构、跳转、积分奖励与终点。",
+  "buttonCoordinates": [
+    { "id": 1, "x": 300, "y": 520 },
+    { "id": 2, "x": 920, "y": 480 }
+  ],
+  "price": "0",
+  "createTime": "2026.9.29",
+  "ageAppropriateness": "3+",
+  "PublicKey": "",
+  "artStyle": "greenPark",
+  "points": "宝石"
+}
