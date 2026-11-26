@@ -1,0 +1,45 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+*.iml
+*.lock
+!pubspec.lock
+
+# Flutter 生成的平台产物
+.flutter-plugins
+.flutter-plugins-dependencies
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# 桌面构建产物
+windows/flutter/ephemeral/
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/
+*.dll
+*.pdb
+*.so
+*.dylib
+
+# 本地密钥与配置（绝不入库）
+*.env
+.env
+backend/.env
+backend/.local/
+app_defines.json
+
+# 签名
+*.jks
+*.keystore
+key.properties
+
+# 个人分析文件
+ignore1/
+*_analysis.md
+stage_editor_preview.html
+vibe_images/
