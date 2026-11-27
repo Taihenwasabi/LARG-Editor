@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:larg_editor/page/editor/index.dart';
+import 'package:larg_editor/service/video_plugin_init.dart';
 import 'package:larg_editor/theme/app_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  initVideoPlugin();
   runApp(const LargEditorApp());
 }
 

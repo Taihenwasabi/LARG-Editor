@@ -1,8 +1,8 @@
 library;
 
+import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
@@ -10,6 +10,7 @@ import 'package:larg_editor/component/pack_media.dart';
 import 'package:larg_editor/component/video_source.dart';
 import 'package:larg_editor/i18n/i18n.dart';
 import 'package:larg_editor/service/item_video_controller.dart';
+import 'package:larg_editor/service/media_store.dart';
 import 'package:video_player/video_player.dart';
 import 'package:larg_editor/theme/canvas_skin.dart';
 import 'package:larg_editor/theme/tokens.dart';
@@ -509,18 +510,16 @@ class _AudioBody extends StatefulWidget {
 }
 
 class _AudioBodyState extends State<_AudioBody> {
-  final AudioPlayer _player = AudioPlayer();
+  // 桌面端音频走 video_player + fvp（libffmpeg 可解码纯音频）：
+  // 一个后端同时覆盖音视频，摆脱 audioplayers 的 nuget 依赖。
+  VideoPlayerController? _controller;
   bool _failed = false;
   bool _ready = false;
-  Duration _duration = Duration.zero;
   double _volume = 1.0;
 
   @override
   void initState() {
     super.initState();
-    _player.onDurationChanged.listen((d) {
-      if (mounted) setState(() => _duration = d);
-    });
     _init();
   }
 
@@ -528,11 +527,19 @@ class _AudioBodyState extends State<_AudioBody> {
     try {
       final held = widget.bytes;
       final bytes = held ?? await loadPackMediaBytes(widget.assetKey);
-      await _player.setSourceBytes(bytes);
-      final d = await _player.getDuration();
-      if (!mounted) return;
+      final name = widget.assetKey.split('/').last;
+      final path = await writeTempMedia(name, bytes);
+      if (path == null) throw StateError('媒体落盘失败');
+      final c = VideoPlayerController.file(File(path));
+      await c.initialize();
+      c.addListener(_onTick);
+      if (!mounted) {
+        c.removeListener(_onTick);
+        await c.dispose();
+        return;
+      }
       setState(() {
-        if (d != null) _duration = d;
+        _controller = c;
         _ready = true;
       });
     } catch (_) {
@@ -540,17 +547,25 @@ class _AudioBodyState extends State<_AudioBody> {
     }
   }
 
+  void _onTick() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
-    _player.dispose();
+    _controller
+      ?..removeListener(_onTick)
+      ..dispose();
     super.dispose();
   }
 
   Future<void> _toggle() async {
-    if (_player.state == PlayerState.playing) {
-      await _player.pause();
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) return;
+    if (c.value.isPlaying) {
+      await c.pause();
     } else {
-      await _player.resume();
+      await c.play();
     }
   }
 
@@ -592,21 +607,18 @@ class _AudioBodyState extends State<_AudioBody> {
                 else ...[
                   _buildProgress(),
                   SizedBox(height: gap),
-                  StreamBuilder<PlayerState>(
-                    stream: _player.onPlayerStateChanged,
-                    builder: (ctx, snap) => Material(
-                      color: _ink,
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: _toggle,
-                        child: Icon(
-                          snap.data == PlayerState.playing
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                          size: playSize,
-                          color: CanvasSkin.white,
-                        ),
+                  Material(
+                    color: _ink,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: _toggle,
+                      child: Icon(
+                        (_controller?.value.isPlaying ?? false)
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                        size: playSize,
+                        color: CanvasSkin.white,
                       ),
                     ),
                   ),
@@ -622,44 +634,40 @@ class _AudioBodyState extends State<_AudioBody> {
   }
 
   Widget _buildProgress() {
-    return StreamBuilder<Duration>(
-      stream: _player.onPositionChanged,
-      builder: (ctx, posSnap) {
-        final dur = _duration;
-        final pos = posSnap.data ?? Duration.zero;
-        final maxMs = dur.inMilliseconds;
-        return Column(
-          children: [
-            Slider(
-              value: maxMs <= 0
-                  ? 0
-                  : pos.inMilliseconds.clamp(0, maxMs).toDouble(),
-              max: maxMs <= 0 ? 1 : maxMs.toDouble(),
-              activeColor: _raus,
-              inactiveColor: CanvasSkin.ddd,
-              onChanged: maxMs <= 0
-                  ? null
-                  : (v) => _player.seek(Duration(milliseconds: v.toInt())),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _fmt(pos),
-                    style: const TextStyle(color: _muted, fontSize: 12),
-                  ),
-                  Text(
-                    _fmt(dur),
-                    style: const TextStyle(color: _muted, fontSize: 12),
-                  ),
-                ],
+    final c = _controller;
+    final dur = c?.value.duration ?? Duration.zero;
+    final pos = c?.value.position ?? Duration.zero;
+    final maxMs = dur.inMilliseconds;
+    return Column(
+      children: [
+        Slider(
+          value: maxMs <= 0
+              ? 0
+              : pos.inMilliseconds.clamp(0, maxMs).toDouble(),
+          max: maxMs <= 0 ? 1 : maxMs.toDouble(),
+          activeColor: _raus,
+          inactiveColor: CanvasSkin.ddd,
+          onChanged: (c == null || maxMs <= 0)
+              ? null
+              : (v) => c.seekTo(Duration(milliseconds: v.toInt())),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                _fmt(pos),
+                style: const TextStyle(color: _muted, fontSize: 12),
               ),
-            ),
-          ],
-        );
-      },
+              Text(
+                _fmt(dur),
+                style: const TextStyle(color: _muted, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -674,7 +682,7 @@ class _AudioBodyState extends State<_AudioBody> {
             inactiveColor: CanvasSkin.ddd,
             onChanged: (v) {
               setState(() => _volume = v);
-              _player.setVolume(v);
+              _controller?.setVolume(v);
             },
           ),
         ),

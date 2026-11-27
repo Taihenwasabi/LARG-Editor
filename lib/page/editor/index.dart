@@ -12,6 +12,7 @@ import 'package:larg_editor/component/engine.dart';
 import 'package:larg_editor/engine/pack_doctor.dart' as doctor;
 import 'package:larg_editor/engine/package_io.dart';
 import 'package:larg_editor/i18n/i18n.dart';
+import 'package:larg_editor/component/labeled_field.dart';
 import 'package:larg_editor/page/editor/card_tree.dart';
 import 'package:larg_editor/page/editor/desktop_workbench.dart';
 import 'package:larg_editor/page/editor/editor_models.dart';
@@ -57,6 +58,29 @@ class _EditorPageState extends State<EditorPage>
   int? _selectedStage;
   int? _selectedLine;
   int? _selectedCheckpoint;
+
+  // 每关自检问题数（stage 文件名 → 条数）。保存/导入后异步刷新，
+  // 判定与「检查」页共用引擎的 PackDoctor，不另写一套。
+  final Map<String, int> _issuesByFile = {};
+
+  Future<void> _refreshIssues() async {
+    final zip = _encodeZip();
+    if (zip == null) return;
+    final report = _runDoctor(zip);
+    final counts = <String, int>{};
+    for (final issue in report.issues) {
+      final src = issue.source;
+      if (src == null) continue;
+      final file = src.split('/').last;
+      counts[file] = (counts[file] ?? 0) + 1;
+    }
+    if (!mounted) return;
+    setState(() {
+      _issuesByFile
+        ..clear()
+        ..addAll(counts);
+    });
+  }
 
   bool _isDesktop(BuildContext context) =>
       MediaQuery.sizeOf(context).width >= 900;
@@ -107,6 +131,7 @@ class _EditorPageState extends State<EditorPage>
     } catch (e) {
       EngineLog.warn('草稿保存失败：$e');
     }
+    unawaited(_refreshIssues());
   }
 
   Future<void> _restoreOnLaunch() async {
@@ -653,6 +678,7 @@ class _EditorPageState extends State<EditorPage>
             _selectedLine = sel.line;
             _selectedCheckpoint = sel.checkpoint;
           }),
+          issuesByFile: _issuesByFile,
           onAddStage: _addStage,
         );
       case WorkbenchSection.item:
@@ -701,16 +727,15 @@ class _EditorPageState extends State<EditorPage>
         ),
         const SizedBox(height: 8),
         // 说话人（对白）
-        TextField(
-          controller: TextEditingController(text: line.speaker),
-          decoration: InputDecoration(labelText: t('editor.line.speaker'), isDense: true),
+        LabeledField(
+          label: t('editor.line.speaker'),
+          value: line.speaker,
           onChanged: (v) => line.speaker = v,
         ),
-        const SizedBox(height: 8),
         // 行 id
-        TextField(
-          controller: TextEditingController(text: line.id),
-          decoration: InputDecoration(labelText: t('editor.line.id'), isDense: true),
+        LabeledField(
+          label: t('editor.line.id'),
+          value: line.id,
           onChanged: (v) => line.id = v,
         ),
         const SizedBox(height: 8),
@@ -735,14 +760,7 @@ class _EditorPageState extends State<EditorPage>
   }
 
   Widget _mediaSlotField(String label, String value, ValueChanged<String> onChanged) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: TextField(
-        controller: TextEditingController(text: value),
-        decoration: InputDecoration(labelText: label, isDense: true),
-        onChanged: onChanged,
-      ),
-    );
+    return LabeledField(label: label, value: value, onChanged: onChanged);
   }
 
   Widget _stageInspector(EditableStage stage) {
@@ -753,15 +771,14 @@ class _EditorPageState extends State<EditorPage>
         Text('${stage.id} · ${stage.fileName}',
             style: TextStyle(fontSize: 12, color: scheme.primary)),
         const SizedBox(height: 8),
-        TextField(
-          controller: TextEditingController(text: stage.background ?? ''),
-          decoration: InputDecoration(labelText: t('editor.line.background'), isDense: true),
+        LabeledField(
+          label: t('editor.line.background'),
+          value: stage.background ?? '',
           onChanged: (v) => stage.background = v.isEmpty ? null : v,
         ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: TextEditingController(text: stage.bgm ?? ''),
-          decoration: InputDecoration(labelText: t('editor.stage.bgm'), isDense: true),
+        LabeledField(
+          label: t('editor.stage.bgm'),
+          value: stage.bgm ?? '',
           onChanged: (v) => stage.bgm = v.isEmpty ? null : v,
         ),
       ],

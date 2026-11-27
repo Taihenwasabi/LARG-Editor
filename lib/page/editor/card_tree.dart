@@ -7,6 +7,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:larg_editor/i18n/i18n.dart';
 import 'package:larg_editor/page/editor/editor_models.dart';
+import 'package:larg_editor/theme/tokens.dart';
 
 /// 树中选中的一个卡片。
 class CardSelection {
@@ -22,12 +23,16 @@ class CardTree extends StatelessWidget {
   final ValueChanged<CardSelection> onSelect;
   final VoidCallback? onAddStage;
 
+  /// 每关自检问题数（文件名 → 条数），来自引擎 PackDoctor 的判定。
+  final Map<String, int> issuesByFile;
+
   const CardTree({
     super.key,
     required this.pack,
     required this.selected,
     required this.onSelect,
     this.onAddStage,
+    this.issuesByFile = const {},
   });
 
   @override
@@ -64,6 +69,7 @@ class CardTree extends StatelessWidget {
           index: i,
           selected: selected,
           onSelect: onSelect,
+          issueCount: issuesByFile[pack.stages[i].fileName] ?? 0,
         );
       },
     );
@@ -75,12 +81,14 @@ class _StageNode extends StatefulWidget {
   final int index;
   final CardSelection? selected;
   final ValueChanged<CardSelection> onSelect;
+  final int issueCount;
 
   const _StageNode({
     required this.stage,
     required this.index,
     required this.selected,
     required this.onSelect,
+    this.issueCount = 0,
   });
 
   @override
@@ -105,7 +113,7 @@ class _StageNodeState extends State<_StageNode> {
       margin: const EdgeInsets.only(bottom: 6),
       elevation: _isSelected ? 2 : 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: FiftyRadii.mdRadius,
         side: BorderSide(
           color: _isSelected ? scheme.primary : scheme.outlineVariant,
           width: _isSelected ? 1.5 : 0.8,
@@ -130,16 +138,37 @@ class _StageNodeState extends State<_StageNode> {
                   Icon(Icons.account_tree_outlined, size: 16, color: scheme.primary),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: TextField(
-                      controller: TextEditingController(text: widget.stage.displayLabel),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        border: InputBorder.none,
-                      ),
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                      onChanged: (v) => widget.stage.id = v,
+                    child: _InlineTitle(
+                      stage: widget.stage,
                     ),
                   ),
+                  if (widget.issueCount > 0) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scheme.errorContainer,
+                        borderRadius: FiftyRadii.fullRadius,
+                      ),
+                      child: Tooltip(
+                        message: t('doctor.fail').replaceAll(
+                          '{n}',
+                          '${widget.issueCount}',
+                        ),
+                        child: Text(
+                          '${widget.issueCount}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: scheme.onErrorContainer,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                   Text(
                     '${widget.stage.lines.length}',
                     style: TextStyle(fontSize: 11, color: scheme.outline),
@@ -226,6 +255,41 @@ class _StageNodeState extends State<_StageNode> {
   }
 }
 
+/// 卡头就地编辑的关卡名：自持控制器，外层重建不弹光标（默会法则——
+/// 打字中途界面不应跳）。
+class _InlineTitle extends StatefulWidget {
+  final EditableStage stage;
+
+  const _InlineTitle({required this.stage});
+
+  @override
+  State<_InlineTitle> createState() => _InlineTitleState();
+}
+
+class _InlineTitleState extends State<_InlineTitle> {
+  late final TextEditingController _ctrl =
+      TextEditingController(text: widget.stage.displayLabel);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _ctrl,
+      decoration: const InputDecoration(
+        isDense: true,
+        border: InputBorder.none,
+      ),
+      style: const TextStyle(fontWeight: FontWeight.w600),
+      onChanged: (v) => widget.stage.id = v,
+    );
+  }
+}
+
 /// 叶子卡片：台词/分支/子件的统一长相（控件词典——一种卡片一种结构）。
 class _Leaf extends StatelessWidget {
   final IconData icon;
@@ -254,7 +318,7 @@ class _Leaf extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
           color: selected ? scheme.primaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: FiftyRadii.mdRadius,
         ),
         child: Row(
           children: [

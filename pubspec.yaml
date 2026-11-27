@@ -27,9 +27,13 @@ dependencies:
   share_plus: ^10.1.4
   cross_file: ^0.3.5+5
 
-  # 媒体播放（预览视频/音频/图片）
+  # 媒体播放（预览视频/音频/图片）。
+  # 音频/视频统一走 video_player + fvp(libffmpeg 预编译，无外部下载)：
+  # 官方 video_player 没有 Windows/Linux 实现，fvp 补位，且能解码纯音频文件；
+  # 这样整个桌面端不再依赖 audioplayers（其 windows 实现要经 nuget 拉 WIX 包，
+  # 本机 nuget 锁故障会卡死构建）。
   video_player: ^2.11.1
-  audioplayers: ^6.7.1
+  fvp: ^0.38.1
   photo_view: ^0.15.0
   chewie: ^1.8.5
   flutter_svg: ^2.2.1
