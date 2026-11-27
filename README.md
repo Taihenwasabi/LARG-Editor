@@ -73,7 +73,11 @@ dart run tool/verify_engine.dart <包所在目录>
 输出 `✅ <包名> 解析成功 | stages=N checks=M assets=K` 才算通过。
 报错会指出哪个文件、哪一行、怎么改（JSON 不合法 / 引用了不存在的 check / next 指向不存在的关卡）。
 
+编辑器里也有「检查游戏包」菜单项，判定逻辑与命令行完全相同。
+
 **校验不过就不要交付。** 包里的 JSON 不做容错解析——引擎直接用标准 `jsonDecode`，有一点语法错就整个包读不出来。
+
+**安全**：`dart run tool/verify_engine.dart` 和编辑器的导入/导出共用引擎侧的 zip 解包/打包，会拒绝 `..` 路径穿越、绝对路径、zip bomb（条目 2 万 / 单文件 64MB / 总 256MB 上限）。你无需单独做安全检查。
 
 ### 5. 交付
 
