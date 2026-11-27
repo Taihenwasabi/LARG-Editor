@@ -141,15 +141,19 @@ Uint8List packToZipBytes(
   Map<String, List<int>> entries, {
   String rootName = 'pack',
 }) {
-  final root = sanitizePathSegment(rootName);
+  // 调用方可能已经在键里带了包根目录（如编辑器的 toArchiveEntries）。
+  // 若所有键共享同一个首层目录且其中有 basicInfo.json，就不再重复加一层。
+  final effectiveRoot = _existingRoot(entries.keys) ?? sanitizePathSegment(rootName);
+  final prefix = '$effectiveRoot/';
   final archive = Archive();
   for (final entry in entries.entries) {
     final safe = sanitizeRelativePath(entry.key);
     if (safe == null) {
       throw PackageFormatException('包内路径非法：「${entry.key}」');
     }
+    final name = safe.startsWith(prefix) ? safe : '$effectiveRoot/$safe';
     final bytes = entry.value;
-    archive.addFile(ArchiveFile('$root/$safe', bytes.length, bytes));
+    archive.addFile(ArchiveFile(name, bytes.length, bytes));
   }
   final encoded = ZipEncoder().encode(archive);
   if (encoded == null) {
@@ -178,6 +182,25 @@ bool _shouldStripRoot(List<String> names) {
   return names.any(
     (n) => n.substring(top.length + 1).toLowerCase() == 'basicinfo.json',
   );
+}
+
+/// 若所有键都共享同一个首层目录，且该目录下能找到 basicInfo.json，返回该目录名。
+String? _existingRoot(Iterable<String> keys) {
+  final list = keys.toList();
+  if (list.isEmpty) return null;
+  final tops = <String>{};
+  for (final k in list) {
+    final slash = k.indexOf('/');
+    if (slash <= 0) return null;
+    tops.add(k.substring(0, slash));
+  }
+  if (tops.length != 1) return null;
+  final top = tops.first;
+  return list.any(
+    (k) => k.substring(top.length + 1).toLowerCase() == 'basicinfo.json',
+  )
+      ? top
+      : null;
 }
 
 String _mb(int bytes) => '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';

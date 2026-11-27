@@ -898,8 +898,9 @@ class EditablePack extends ChangeNotifier {
   }
 
 
+  /// 从 zip 导入。归一化包根在 [normalizeRoot] 里统一做，调用方不用再管。
   static EditablePack fromZip(List<int> zipBytes, {String root = 'imported'}) =>
-      fromFileMap(unpackZip(zipBytes), root: root);
+      fromFileMap(normalizeRoot(unpackZip(zipBytes)), root: root);
 
 
   List<String> get stageTargets {
