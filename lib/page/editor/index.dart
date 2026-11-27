@@ -578,9 +578,18 @@ class _EditorPageState extends State<EditorPage>
     return Scaffold(
       appBar: AppBar(
         title: Text(t('editor.title')),
-        centerTitle: true,
+        centerTitle: false,
         actions: [
-
+          // 一等入口：桌面用户第一件事就是打开自己的包，不该藏进三层菜单。
+          Tooltip(
+            message: t('editor.openFolder.tip'),
+            child: TextButton.icon(
+              onPressed: _importFromFolder,
+              icon: const Icon(Icons.folder_open_outlined),
+              label: Text(t('editor.openFolder')),
+            ),
+          ),
+          const SizedBox(width: 4),
           PopupMenuButton<String>(
             tooltip: t('editor.menu'),
             position: PopupMenuPosition.under,

@@ -498,6 +498,8 @@
     "webExport.body": "生成一个可独立打开的 HTML 文件，媒体全部内嵌，可直接发给玩家。\n\n离线网页不支持 AI 校验：涉及 AI 的校验会直接放行。",
     "webExport.confirm": "导出",
     "webExport.done": "网页已导出",
+    "openFolder": "打开游戏包",
+    "openFolder.tip": "选择游戏包文件夹，直接开始编辑",
     "doctor.menu": "检查游戏包",
     "doctor.pass": "检查通过，没有发现问题",
     "doctor.fail": "发现 {n} 个问题：",

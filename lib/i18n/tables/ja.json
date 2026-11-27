@@ -501,6 +501,8 @@
     "webExport.body": "メディアをすべて埋め込んだ HTML ファイルを1つ生成し、そのままプレイヤーに送れます。\n\nオフライン版は AI 検証に対応していません：AI 検証は自動的に合格します。",
     "webExport.confirm": "書き出す",
     "webExport.done": "Webページを書き出しました",
+    "openFolder": "パックを開く",
+    "openFolder.tip": "ゲームパックのフォルダーを選んで編集を始める",
     "doctor.menu": "パックを検査",
     "doctor.pass": "問題は見つかりませんでした",
     "doctor.fail": "{n} 件の問題が見つかりました：",
