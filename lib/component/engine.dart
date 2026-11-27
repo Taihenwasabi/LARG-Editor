@@ -8,7 +8,7 @@
 /// - [GameEngine.listPackages] 列出根目录下的可用包；
 /// - [GameEngine.load] 加载并解析一个包，返回 [GamePackage]。
 ///
-/// App 层只需 `import 'package:quq1/component/engine.dart';` 即可拿到全部
+/// App 层只需 `import 'package:larg_editor/component/engine.dart';` 即可拿到全部
 /// 公开类型（模型/来源/校验/异常/日志），无需深入 lib/engine/ 内部路径。
 library;
 
