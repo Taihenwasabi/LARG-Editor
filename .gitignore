@@ -49,3 +49,14 @@ an.txt
 analyze.*
 bld.txt
 tst.txt
+pub.txt
+dbg.txt
+wt.txt
+ut.txt
+applog*.txt
+flutter_*.log
+*.log
+ignore_*.png
+
+# 个人分析文件（不入库）
+个人*.md

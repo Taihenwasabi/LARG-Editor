@@ -4,7 +4,7 @@
 /// [MemoryPackageSource]。这样引擎在 **web / 移动端 / 桌面** 上都能一致解析：
 /// - web 上 `dart:io` 的 `Platform._pathSeparator` / `File` / `Directory` 会抛
 ///   `Unsupported operation`，文件系统来源不可用；
-/// - 硬编码的开发机路径（如 `d:\AProGRAM\quq1\gamepacks`）在手机上并不存在。
+/// - 硬编码的开发机绝对路径在手机上并不存在，不能写进代码。
 ///
 /// 依赖注入方向：本类属于 App 层（可用 flutter/services），引擎核心仍保持纯 Dart。
 library;

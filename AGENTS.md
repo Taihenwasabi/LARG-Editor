@@ -87,38 +87,38 @@ LARG Editor = 桌面端为主的 Flutter 软件，只有两件事：**编辑游�
 
 - 电脑端优先（Windows 为主，macOS / Linux 次之）。不做手机端。
 - **没有后端**：不联网、不登录、不上报、不联机、不做云存档。
-- 独立的开源仓库。quq1（Flutter 玩家端 + 后端 + AI 裁判）与 `D:\AProGRAM\quq_3ds`（3DS 端）**都保持闭源**，不并入本仓库。
+- 独立的开源仓库。玩家端（Flutter App + 后端 + AI 裁判）与 3DS 端**都保持闭源**，不并入本仓库。
 
 ## 已裁定的约束（不要再重新提出）
 
-1. **包是唯一真相**，所有端都只是它的播放器。包格式以 `PACK_FORMAT.md` 为准，以 quq1 的 Dart 引擎实现为行为基准。
-2. **AI 裁判是否保留**尚未拍板：保留则由用户自填 OpenAI 兼容 key 直连厂商（不内置任何密钥、不上报）；不保留则只做本地判定。未定前不要写 AI 相关代码。
-3. **许可**：禁止未经作者书面授权的任何商业使用；具体许可文本待用户拍板（自定义非商用 / PolyForm Noncommercial 等），未拍板前不要往仓库里放 LICENSE 最终版。
+1. **包是唯一真相**，所有端都只是它的播放器。包格式以 `PACK_FORMAT.md` 为准，以本仓库 Dart 引擎的实现为行为基准。
+2. **AI 裁判**：保留。玩家在设置里自填 OpenAI 兼容接口（地址 / 模型 / 密钥）直连厂商，不内置任何密钥、不上报调用内容。未配置时只用本地判定。
+3. **许可**：MIT（见 `LICENSE`，版权人 Chen Jianyu）。已拍板，不再讨论。素材来源逐项登记在 `NOTICE`。
 4. **Flutter 硬约束**：Flutter 应用无法把一部分代码闭源分发 —— 引擎一旦编进 app，源码就明文躺在用户机器上。所以"引擎闭源 + 编辑器开源"在纯桌面 Flutter 里做不到。本仓库开源即引擎一起开源，这是 Flutter 的限制，不是选择。
 
 ## 代码从哪来
 
-从 `D:\AProGRAM\quq1` 移植（**复制并裁剪**，不做共享依赖包 —— quq1 闭源，共享依赖等于间接开源）：
+本仓库的编辑器与引擎源自作者自己的玩家端项目，**复制并裁剪**后独立维护（不做共享依赖包）。
 
 - 搬：`lib/engine/**`（游戏包解析引擎，纯 Dart 零依赖）、`lib/page/editor/**`、`lib/page/gameTalk|gameInventory|gameNode|gameSave`、`lib/store/` 里的本地包与存档部分、`lib/service/` 的文件与媒体处理、`lib/i18n/**`、相关 `lib/component/`。
-- 不搬：`lib/api/**` 全部、`backend/`、`lib/service/update*`、`android/ios` 原生桥、玩家侧拍摄录音（改为"从本地选文件"）。
+- 不搬：`lib/api/**` 的联网层（AI 裁判除外）、后端目录、自动更新、手机原生桥、玩家侧拍摄录音（改为"从本地选文件"）。
 
 改完后两边会分叉，靠 `PACK_FORMAT.md` 对齐，**不靠代码共享**。改动包格式时必须同步改这份文档。
 
 ## 素材与版权
 
-- 素材来源必须逐个写进 `NOTICE`（见 quq1 的 `gamepacks/larg/NOTICE.txt` 写法：文件名 + 来源 + 是否第三方）。
+- 素材来源必须逐个写进 `NOTICE`（写法：文件名 + 来源 + 是否第三方）。
 - 不得打包来源不明的第三方素材。引用前先确认版权状态。
-- `quq_3ds` 的启动动画 8 帧抽自 `爱音.gif`（MyGO 角色），**开源前必须换掉** —— 本仓库若复用同理。
+- 带角色的同人素材（动画截图、二次创作图等）默认不入库。
 
 ## 待办
 
-- 项目待办见本仓库 `待办.md`。
-- quq1 侧的待办与历史决策见 `D:\AProGRAM\quq1\ignore1\待办.md`（开源相关已由用户裁定搁置，等用户主动问起再做）。
+- 项目待办见本仓库 `待办.md`；验收标准见 `验收标准.md`。
 
-## 环境（本机实测）
+## 环境
 
-- Flutter 在 `D:\flutter\bin`，Dart 同目录。
-- `pwsh` 工具在本机不可用（退出码 3221225794）；bash 工具实际是 **cmd.exe**，命令写 cmd 语法（`cd /d`、`dir`、`copy`、`del`、`findstr`）。
-- `find /c /v ""` 会误触发 Windows 的 `find.exe` 扫全盘，别用。
-- 长文件用 grep 锚点定位再定点读，派子代理分片读大文件会失败。
+- Flutter / Dart 通过系统 PATH 调用（`flutter` / `dart` 命令）。
+- 构建产物目录：`build/windows/x64/runner/Release/`。**每次构建后必须核对
+  `flutter_windows.dll` 与 `data/` 是否存在** —— 只出 `larg_editor.exe` 说明
+  CMake 配置缓存有问题，删掉 `build/windows` 重新配置即可。
+- 长文件用 grep 锚点定位再定点读，不要让子代理分片读大文件。

@@ -18,11 +18,11 @@ Future<String?> writeTempMedia(String fileName, Uint8List bytes) async {
   return f.path;
 }
 
-/// 缓存目录：`<支持目录>/quq1_media_cache/`。
+/// 缓存目录：`<支持目录>/larg_editor_media_cache/`。
 Future<Directory> _cacheRoot() async {
   final base = await getApplicationSupportDirectory();
   final dir = Directory(
-    '${base.path}${Platform.pathSeparator}quq1_media_cache',
+    '${base.path}${Platform.pathSeparator}larg_editor_media_cache',
   );
   if (!await dir.exists()) await dir.create(recursive: true);
   return dir;

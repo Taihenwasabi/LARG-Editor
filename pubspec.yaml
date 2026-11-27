@@ -1,6 +1,9 @@
 name: larg_editor
-description: "Desktop editor and player for LARG script packs."
+description: "Desktop editor and local player for LARG script packs."
 publish_to: 'none'
+homepage: https://github.com/Taihenwasabi/LARG-Editor
+repository: https://github.com/Taihenwasabi/LARG-Editor
+issue_tracker: https://github.com/Taihenwasabi/LARG-Editor/issues
 
 version: 1.0.0+1
 

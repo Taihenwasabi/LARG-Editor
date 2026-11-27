@@ -1,0 +1,46 @@
+# 统一换行：源码与文本文件一律 LF 入库，Windows 检出时按需转换。
+# 避免每次提交都出现 "LF will be replaced by CRLF" 的一堆噪音警告。
+* text=auto eol=lf
+
+# Dart / 配置文件按文本处理
+*.dart    text eol=lf
+*.yaml    text eol=lf
+*.yml     text eol=lf
+*.json    text eol=lf
+*.md      text eol=lf
+*.txt     text eol=lf
+*.xml     text eol=lf
+*.cmake   text eol=lf
+
+# 二进制文件：不做换行转换，也不参与文本 diff
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.webp    binary
+*.ico     binary
+*.ttf     binary
+*.otf     binary
+*.wav     binary
+*.mp3     binary
+*.m4a     binary
+*.mp4     binary
+*.mov     binary
+*.webm    binary
+*.zip     binary
+*.dll     binary
+*.exe     binary
+*.so      binary
+*.dylib   binary
+*.pdb     binary
+*.lib     binary
+
+# Windows 平台脚本保持 CRLF（Visual Studio 工程要求）
+*.sln     text eol=crlf
+*.vcxproj text eol=crlf
+*.vcxproj.filters text eol=crlf
+*.rc      text eol=crlf
+*.bat     text eol=crlf
+
+# 语言统计：文档不计入代码量
+*.md      linguist-documentation

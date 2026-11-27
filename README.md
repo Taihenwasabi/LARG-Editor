@@ -4,9 +4,13 @@
 
 一个游戏包 = 一个 JSON 目录。写好它，别的端（手机 App、3DS）就能直接播放。
 
-- **给谁看**：接到「我写了剧本，帮我做成 LARG 游戏包」这类任务的 AI agent。
+- **给谁看**：主要写给接到「我写了剧本，帮我做成 LARG 游戏包」这类任务的 AI agent；
+  同时也是一个能自己上手改稿的桌面编辑器。
 - **格式契约**：**[PACK_FORMAT.md](PACK_FORMAT.md)** —— 唯一权威，先读它。
-- **许可**：MIT，见 [LICENSE](LICENSE)。素材来源见 [NOTICE](NOTICE)。
+- **许可**：MIT，见 [LICENSE](LICENSE)。第三方内容与素材来源见 [NOTICE](NOTICE)。
+- **安全**：纯本地工具，不联网、不需要登录；唯一的联网是你在设置里自己配的 AI 裁判。
+  详见 [SECURITY.md](SECURITY.md)。
+- **版本记录**：见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
@@ -96,27 +100,59 @@ dart run tool/verify_engine.dart <包所在目录>
 
 ---
 
-## 跑编辑器（可选，需要 Flutter 3.41+）
+## 跑编辑器
+
+需要 Flutter 3.41+。
 
 ```
 flutter pub get
 flutter run -d windows
 ```
 
-编辑器能做：可视化编辑关卡、本地试玩、导出 zip、导出网页版。
+打包成可直接分发的程序：
 
 ```
-flutter test          # 包格式契约测试
-flutter analyze       # 静态分析
+flutter build windows --release
+# 产物：build/windows/x64/runner/Release/
 ```
+
+编辑器能做：可视化编辑关卡、本地试玩、AI 裁判判定、导出 zip、导出网页版。
+
+```
+flutter test          # 全部测试
+flutter analyze       # 静态分析
+dart run tool/verify_engine.dart   # 用引擎校验 gamepacks/ 下的示例包
+```
+
+## AI 裁判（可选）
+
+关卡里的「校验题」可以指定要点，让 AI 判断玩家提交是否合格：
+
+1. 打开软件 → 左下角齿轮 → 设置
+2. 选服务商（DeepSeek / OpenAI / 阿里云百炼 / Moonshot / 本地 Ollama / 自定义）
+3. 填模型名和 API 密钥 → 点「测试连接」
+4. 试玩到校验题时，点选提交，由 AI 判定并给出未通过的理由
+
+密钥只存在本机，不内置、不上报。不配置时所有题目走本地判定，不会报错。
 
 ## 目录
 
 ```
 lib/engine/          游戏包解析引擎（纯 Dart，零 flutter 依赖）
+lib/api/             AI 裁判调用与判定结果解析
+lib/service/         媒体落盘、AI 判定编排、导入导出
+lib/page/editor/     编辑器工作台（卡片树 / 预览 / 检查器 / 提交面板）
+lib/page/settings/   设置页（AI 裁判、语言、关于）
 lib/model/           格式相关的纯逻辑
 tool/verify_engine.dart  包校验脚本
-test/                契约测试
+test/                契约与界面测试
 gamepacks/           示例包（localDemo 最小，larg 六幕完整）
 PACK_FORMAT.md       包格式契约
+NOTICE               第三方内容与素材来源
 ```
+
+## 贡献
+
+- 改包格式必须同步改 `PACK_FORMAT.md`，并补 `test/` 里的契约测试。
+- 新增第三方素材必须登记到 `NOTICE`。
+- 提交前跑一遍：`flutter analyze` + `flutter test`。
