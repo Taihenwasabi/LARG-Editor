@@ -1,99 +1,118 @@
 # LARG Editor
 
-桌面端的剧本游戏包编辑器：**做包** + **就地试玩**。
+把剧本做成 LARG 游戏包。
 
-不联网、不登录、不上报、不联机。只做两件事 —— 把你写的剧本变成一个能玩、能导出的游戏包。
+一个游戏包 = 一个 JSON 目录。写好它，别的端（手机 App、3DS）就能直接播放。
 
-> **状态：开发中。** 目前仓库只有立项文档与包格式契约，功能还没开始搬。
+- **给谁看**：接到「我写了剧本，帮我做成 LARG 游戏包」这类任务的 AI agent。
+- **格式契约**：**[PACK_FORMAT.md](PACK_FORMAT.md)** —— 唯一权威，先读它。
+- **许可**：MIT，见 [LICENSE](LICENSE)。素材来源见 [NOTICE](NOTICE)。
 
 ---
 
-## 这是什么
+## 怎么做（agent 工作流）
 
-LARG（Live Action Role Game，真人实景角色扮演）类剧本游戏的创作工具。
+### 1. 读剧本，拆成关卡
 
-游戏包是纯 JSON 目录：一个关卡 = 若干行台词（对白 / 旁白）+ 若干分支选项；分支可以挂"校验题"（答题、拍照、录音），通过后发放物品与积分，再跳到下一关。
+一个关卡 = 若干行台词 + 若干分支选项。
+**按剧情转折切关**，不是按字数切。每关通常是「一个场景 → 一个选择」。
 
-**包是唯一真相**，任何端都只是它的播放器。LARG Editor 负责生产包；其它端（手机玩家端、3DS 版本）负责播放。
+### 2. 建目录
 
-## 目标
+```
+<包名>/
+  basicInfo.json       包清单
+  stage/1xxx.json      关卡，按文件名数字前缀排序
+  check/1.json         校验题（可选，被关卡引用时才需要）
+  item/xxx.json        剧情物品（可选）
+  assets/picture/      图片
+  assets/audio/        音频
+  assets/video/        视频
+```
 
-- 作者零代码做出一个游戏包：基本信息 / 关卡 / 台词 / 分支 / 校验题 / 物品 / 素材。
-- 一键在本地跑刚做的包，所见即所得。
-- 导出标准 `.zip` 游戏包，与其它端共用同一份格式契约。
+### 3. 写内容
 
-## 不做什么
+最小可玩的一关：
 
-- 后端账号、登录、联机排行榜、云存档
-- 内购、付费解锁
-- 在线素材库、遥测、崩溃上报
-- 手机端（那是另一个项目的事）
+```json
+{
+  "id": "s1",
+  "lines": [
+    { "lineId": "hello", "type": "narration", "text": "夜里十一点五十九分，传送带送来一只没有条码的纸箱。" },
+    { "lineId": "ask", "type": "dialogue", "speaker": "同事", "text": "这单你要处理吗？" }
+  ],
+  "checkpoint": [
+    { "text": "登记这件包裹", "next": "s2", "reward": 10 }
+  ]
+}
+```
 
-## 许可
+`basicInfo.json`：
 
-**本仓库禁止未经作者书面授权的任何商业使用。** 详见 [LICENSE](LICENSE)（拟稿中，定稿前请勿分发）。
+```json
+{
+  "gameName": "我的剧本",
+  "Id": "g-my-pack-0001",
+  "official": "no",
+  "Introduction": "一句话简介",
+  "price": "0",
+  "createTime": "2026.11.27",
+  "ageAppropriateness": "12+",
+  "PublicKey": "MY-PUBKEY-0001",
+  "artStyle": "greenPark",
+  "points": "积分"
+}
+```
 
-具体许可文本待定稿。分发前请先阅读并确认授权条款。
+### 4. 校验（必做）
 
-## 包格式
+```
+dart run tool/verify_engine.dart <包所在目录>
+```
 
-见 **[PACK_FORMAT.md](PACK_FORMAT.md)** —— 这是本仓库与其它端之间唯一的契约。
+输出 `✅ <包名> 解析成功 | stages=N checks=M assets=K` 才算通过。
+报错会指出哪个文件、哪一行、怎么改（JSON 不合法 / 引用了不存在的 check / next 指向不存在的关卡）。
 
-改动包格式时，必须同步改这份文档。
+**校验不过就不要交付。** 包里的 JSON 不做容错解析——引擎直接用标准 `jsonDecode`，有一点语法错就整个包读不出来。
 
-## 素材来源
+### 5. 交付
 
-见 **[NOTICE](NOTICE)**。本仓库不打包来源不明的第三方素材；每个素材都要写清文件名、来源、是否第三方。
+把整个目录给用户。也可以打成 zip（编辑器能导入）。
 
-## 构建
+---
 
-需要 Flutter 3.41+ / Dart 3.11+。
+## 几个容易踩的
+
+- **JSON 必须合法**：不能有 `//` 注释、不能有尾逗号。写完先自检。
+- **`next` 指向关卡的 `id`**，不是文件名。
+- **`sprites` 写了就整批替换**（空数组 = 明确不显示立绘），**不写才沿用上一行**。
+- **`check` 引用两种写法都行**：`"check1"` 或 `"check1.json"`。
+- **物品 id 要对得上**：`condition` 和 `grant` 里引用的物品必须在 `item/` 里存在，否则那个选项永远不出现。
+- **缺失的 check 不等于自动通过** —— 引用错了就是包错了。
+
+---
+
+## 跑编辑器（可选，需要 Flutter 3.41+）
 
 ```
 flutter pub get
 flutter run -d windows
 ```
 
-打包：
+编辑器能做：可视化编辑关卡、本地试玩、导出 zip、导出网页版。
 
 ```
-flutter build windows --release
-flutter build macos --release
-flutter build linux --release
+flutter test          # 包格式契约测试
+flutter analyze       # 静态分析
 ```
-
-## 验证
-
-引擎是纯 Dart、零 flutter 依赖，可以脱离 App 独立验证：
-
-```
-dart run tool/verify_engine.dart          # 扫 gamepacks/ 并打印分步解析日志
-dart run tool/verify_engine.dart <根目录>  # 指定目录
-flutter test                              # 包格式契约测试
-flutter analyze                           # 静态分析
-```
-
-`gamepacks/` 里带两个可直接解析的示例包：`localDemo`（最小包，无素材）与 `larg`（六幕完整剧情，素材全部自制）。
 
 ## 目录
 
 ```
 lib/engine/          游戏包解析引擎（纯 Dart，零 flutter 依赖）
-  model/             数据模型
-  parse/             各解析器（manifest / stage / check / item / asset / glb / mp4）
-  source/            来源抽象（文件系统 / 内存）
-  security/          资格校验与来源判定
-lib/model/           与格式相关的纯逻辑（物品、校验配置）
-tool/verify_engine.dart  引擎自检脚本
-test/                包格式契约测试
-gamepacks/           随仓库分发的示例包
-AGENTS.md            协作规则 + 本项目约束
-PACK_FORMAT.md       游戏包格式契约（唯一权威）
-LARG_Editor规划.md   立项与里程碑规划
-NOTICE               素材来源声明
-待办.md              项目待办
+lib/model/           格式相关的纯逻辑
+tool/verify_engine.dart  包校验脚本
+test/                契约测试
+gamepacks/           示例包（localDemo 最小，larg 六幕完整）
+PACK_FORMAT.md       包格式契约
 ```
-
-## 贡献
-
-暂不接受外部贡献。发现的问题请提交 issue。
