@@ -5,6 +5,8 @@
 /// 校验声明(check) 与跳转目标(next)。
 library;
 
+import 'effects.dart';
+
 /// 一行剧情内容：对白(dialogue) 或 旁白(narration)。
 ///
 /// 一行可选地携带媒体资源（相对包根路径，如 `assets/picture/x.png`），
@@ -42,6 +44,9 @@ class StageLine {
 
   final bool declaresSprites;
 
+  /// 本行特效声明（PACK_FORMAT v2）。缺省空列表 = 无特效。
+  final List<FxSpec> fx;
+
   const StageLine({
     required this.type,
     this.speaker,
@@ -53,6 +58,7 @@ class StageLine {
     this.background,
     this.sprites = const [],
     this.declaresSprites = false,
+    this.fx = const [],
   });
 
   /// [index] 为该行在关卡里的下标，仅在 JSON 未写 `lineId` 时用于兜底编号。
@@ -74,6 +80,7 @@ class StageLine {
             if (entry is Map<String, dynamic>) StageSprite.fromJson(entry),
       ],
       declaresSprites: rawSprites is List,
+      fx: parseFxList(json['fx']),
     );
   }
 
@@ -87,11 +94,19 @@ class StageSprite {
   final String asset;
   final String position; // left | center | right
 
-  const StageSprite({required this.asset, this.position = 'center'});
+  /// 立绘槽位（特效 `target: sprite:<slot>` 据此寻址）。空则按位置索引。
+  final String slot;
+
+  const StageSprite({
+    required this.asset,
+    this.position = 'center',
+    this.slot = '',
+  });
 
   factory StageSprite.fromJson(Map<String, dynamic> json) => StageSprite(
     asset: (json['asset'] ?? '').toString(),
     position: (json['position'] ?? 'center').toString(),
+    slot: (json['slot'] ?? '').toString(),
   );
 
   Map<String, dynamic> toJson() => {'asset': asset, 'position': position};
@@ -168,6 +183,10 @@ class Stage {
   /// 关卡背景音乐（相对包根路径）；进入本关循环播放，离开即停。
   final String? bgm;
 
+  /// 过场特效（进入/离开本关）。JSON `fx: {transitionIn/Out: [...]}`。
+  final List<FxSpec> transitionIn;
+  final List<FxSpec> transitionOut;
+
   const Stage({
     required this.id,
     required this.order,
@@ -176,6 +195,8 @@ class Stage {
     required this.checkpoints,
     this.background,
     this.bgm,
+    this.transitionIn = const [],
+    this.transitionOut = const [],
   });
 
   /// 台词编号 → 关卡内下标；不存在返回 -1。

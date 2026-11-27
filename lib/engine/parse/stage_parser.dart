@@ -8,6 +8,7 @@ import 'dart:convert';
 
 import '../engine_exception.dart';
 import '../engine_log.dart';
+import '../model/effects.dart';
 import '../model/stage.dart';
 import '../source/package_source.dart';
 
@@ -95,7 +96,14 @@ class StageParser {
       checkpoints: checkpoints,
       background: decoded['background']?.toString(),
       bgm: decoded['bgm']?.toString(),
+      transitionIn: _transitionFx(decoded['fx'], 'transitionIn'),
+      transitionOut: _transitionFx(decoded['fx'], 'transitionOut'),
     );
+  }
+
+  static List<FxSpec> _transitionFx(dynamic fx, String key) {
+    if (fx is! Map) return const [];
+    return parseFxList(fx[key]);
   }
 
   /// 去掉扩展名。

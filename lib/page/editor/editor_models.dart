@@ -7,6 +7,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:larg_editor/engine/package_io.dart';
+import 'package:larg_editor/engine/model/effects.dart';
 import 'package:larg_editor/store/game_packages.dart';
 
 
@@ -170,6 +171,11 @@ class EditableLine {
   bool declaresSprites;
   String id;
 
+  /// 特效声明（原始 JSON 列表）。编辑器不改则原样往返，预览据此播放。
+  final List<Map<String, dynamic>> fxRaw;
+
+  /// 解析后的特效（引擎单一实现，编辑器只读使用）。
+  List<FxSpec> get fx => parseFxList(fxRaw);
 
   bool open = false;
 
@@ -184,11 +190,14 @@ class EditableLine {
     List<EditableSprite>? sprites,
     bool? declaresSprites,
     this.id = '',
+    List<Map<String, dynamic>>? fxRaw,
   }) : sprites = sprites ?? <EditableSprite>[],
-       declaresSprites = declaresSprites ?? (sprites?.isNotEmpty ?? false);
+       declaresSprites = declaresSprites ?? (sprites?.isNotEmpty ?? false),
+       fxRaw = fxRaw ?? <Map<String, dynamic>>[];
 
   factory EditableLine.fromJson(Map<String, dynamic> j) {
     final rawSprites = j['sprites'];
+    final rawFx = j['fx'];
     return EditableLine(
       id: (j['lineId'] ?? j['id'] ?? '').toString().trim(),
       type: (j['type'] ?? 'narration').toString(),
@@ -205,6 +214,11 @@ class EditableLine {
               EditableSprite.fromJson(Map<String, dynamic>.from(it)),
       ],
       declaresSprites: rawSprites is List,
+      fxRaw: [
+        if (rawFx is List)
+          for (final f in rawFx)
+            if (f is Map) Map<String, dynamic>.from(f),
+      ],
     );
   }
 
@@ -221,6 +235,7 @@ class EditableLine {
       for (final s in sprites)
         if (s.asset.isNotEmpty) s.toJson(),
     ],
+    if (fxRaw.isNotEmpty) 'fx': fxRaw,
   };
 
   EditableLine clone() => EditableLine.fromJson(toJson());
@@ -238,16 +253,25 @@ class EditableSprite {
   String asset;
   String position;
 
-  EditableSprite({this.asset = '', this.position = 'center'});
+  /// 立绘槽位（特效 `target: sprite:<slot>` 寻址）。
+  String slot;
+
+  EditableSprite({
+    this.asset = '',
+    this.position = 'center',
+    this.slot = '',
+  });
 
   factory EditableSprite.fromJson(Map<String, dynamic> j) => EditableSprite(
     asset: (j['asset'] ?? '').toString(),
     position: (j['position'] ?? 'center').toString(),
+    slot: (j['slot'] ?? '').toString(),
   );
 
   Map<String, dynamic> toJson() => {
     'asset': asset,
     'position': position,
+    if (slot.isNotEmpty) 'slot': slot,
   };
 
   EditableSprite clone() => EditableSprite.fromJson(toJson());
@@ -441,6 +465,41 @@ class EditableStage {
     'lines': [for (final l in lines) l.toJson()],
     'checkpoint': [for (final c in checkpoints) c.toJson()],
   };
+
+  /// 关卡默认背景（存于 extras，导出时原样写回 stage JSON）。
+  String? get background => _extras['background']?.toString();
+
+  set background(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      _extras.remove('background');
+    } else {
+      _extras['background'] = value;
+    }
+  }
+
+  /// 关卡过场特效（存于 extras 的 fx.transitionIn / transitionOut）。
+  List<FxSpec> get transitionIn {
+    final fx = _extras['fx'];
+    if (fx is! Map) return const [];
+    return parseFxList(fx['transitionIn']);
+  }
+
+  List<FxSpec> get transitionOut {
+    final fx = _extras['fx'];
+    if (fx is! Map) return const [];
+    return parseFxList(fx['transitionOut']);
+  }
+
+  /// 关卡 BGM（存于 extras）。
+  String? get bgm => _extras['bgm']?.toString();
+
+  set bgm(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      _extras.remove('bgm');
+    } else {
+      _extras['bgm'] = value;
+    }
+  }
 
 
   String get displayLabel {

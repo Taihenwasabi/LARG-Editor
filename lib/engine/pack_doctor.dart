@@ -53,11 +53,55 @@ class PackDoctor {
     _checkStageLinks(pkg, issues);
     _checkCheckLinks(pkg, issues);
     _checkItemLinks(pkg, issues);
+    _checkFx(pkg, issues);
     if (source != null) {
       _checkAssets(pkg, source, issues);
     }
 
     return PackReport(issues);
+  }
+
+  /// 特效校验：未知取值 → 警告（前向兼容）；寻址落空 / 非法时长 → 错误。
+  static void _checkFx(GamePackage pkg, List<PackIssue> issues) {
+    for (final stage in pkg.stages) {
+      for (final spec in [
+        ...stage.transitionIn,
+        ...stage.transitionOut,
+        for (final line in stage.lines) ...line.fx,
+      ]) {
+        final where = 'stage/${stage.sourceFile}';
+        if (spec.trigger == null || spec.type == null) {
+          issues.add(
+            PackIssue(
+              'fx.unknown',
+              '特效含未识别的触发或动作（已静默跳过，不影响游玩）',
+              source: where,
+            ),
+          );
+          continue;
+        }
+        if (spec.durationMs <= 0) {
+          issues.add(
+            PackIssue('fx.duration', '特效时长必须为正数', source: where),
+          );
+        }
+        final slot = spec.target.spriteSlot;
+        if (slot != null) {
+          final found = stage.lines.any(
+            (l) => l.sprites.any((s) => s.slot == slot),
+          );
+          if (!found) {
+            issues.add(
+              PackIssue(
+                'fx.spriteMissing',
+                '特效寻址的立绘槽「$slot」在本关没有对应立绘',
+                source: where,
+              ),
+            );
+          }
+        }
+      }
+    }
   }
 
   static void _checkManifest(GamePackage pkg, List<PackIssue> issues) {

@@ -1,10 +1,11 @@
-# 游戏包格式契约 PACK_FORMAT v1
+# 游戏包格式契约 PACK_FORMAT v2
 
 这是 LARG Editor 与所有播放器之间**唯一的契约**。
 
 - **行为基准**：quq1 的 Dart 引擎（`lib/engine/`）是当前已验证的实现；本仓库移植一份，行为必须一致。
 - **改格式 = 改契约**：动任何字段，必须同步改这份文档，并同步改所有端的解析器。
 - **不做容错解析**：JSON 必须合法。引擎直接用标准 `jsonDecode`，非法 JSON 报错而非猜测。
+- **v2 新增**：特效（fx），见 §9。**旧包完全兼容**——没有 fx 字段的包行为与 v1 完全一致；任何端遇到不认识的特效一律静默跳过，不报错、不影响游玩。
 
 ---
 
@@ -286,3 +287,70 @@
 - [ ] 所有素材路径真实存在
 - [ ] `basicInfo.json` 的 `Id` / `gameName` 非空
 - [ ] 素材来源已登记进 `NOTICE`
+- [ ] （v2）特效取值在词表内；`target: sprite:<slot>` 在本关有对应立绘
+
+---
+
+## 9. 特效（v2 新增）
+
+### 9.1 三条不变式
+
+1. **声明式**：特效写在包 JSON 里，不是代码。
+2. **可忽略**：任何端遇到不认识的 `on`/`type`/`ease` 一律静默跳过（当作无特效），**不报错**。旧引擎读新包不崩，新引擎读旧包表现不变。
+3. **组合式**：特效 = 触发器 × 目标 × 动作；封闭词表，不发明私有 DSL。
+
+### 9.2 数据格式
+
+行特效（`stage/*.json` 的 `lines[]` 元素）：
+
+```jsonc
+{
+  "lineId": "reveal",
+  "type": "narration",
+  "text": "面单上的名字让你后退半步。",
+  "fx": [
+    { "on": "enter", "target": "text", "type": "typewriter", "cps": 18 },
+    { "on": "enter", "target": "screen", "type": "shake", "intensity": 6, "duration": 350 },
+    { "on": "enter", "target": "background", "type": "panZoom", "to": 1.06, "duration": 6000 },
+    { "on": "enter", "target": "sprite:hero", "type": "slide", "from": "right", "duration": 240 }
+  ]
+}
+```
+
+过场特效（关卡顶层）：
+
+```jsonc
+{
+  "id": "s1",
+  "fx": {
+    "transitionIn":  [{ "on": "transitionIn", "target": "screen", "type": "fade", "duration": 300 }],
+    "transitionOut": [{ "on": "transitionOut", "target": "screen", "type": "fade", "duration": 200 }]
+  },
+  "lines": [ ... ]
+}
+```
+
+### 9.3 封闭词表
+
+| 维度 | 取值 | 缺省 |
+|---|---|---|
+| `on` 触发 | `enter` / `exit` / `tap` / `idle` / `transitionIn` / `transitionOut` | `enter` |
+| `target` 目标 | `text` / `background` / `screen` / `media` / `sprite:<slot>` | 无特效 |
+| `type` 动作 | `fade` / `slide` / `pop` / `shake` / `flash` / `panZoom` / `typewriter` / `tint` | 无特效 |
+| `ease` 曲线 | `linear` / `outQuad` / `outCubic` / `inOut` | `outCubic` |
+
+参数：`duration`（ms，缺省 300）、`delay`（ms，缺省 0）、`intensity`/`from`/`to`/`cps`/`distance`/`cycles`（按动作）。
+
+立绘槽位：`sprites[]` 新增 `slot` 字段，`target: sprite:hero` 寻址本行 `slot == "hero"` 的立绘。
+
+### 9.4 各端支持矩阵
+
+| 端 | 支持 |
+|---|---|
+| 编辑器预览 / 玩家端 | 全量八动作 |
+| 导出独立网页 | CSS 可实现子集：`fade` / `slide` / `typewriter`（其余静默跳过） |
+| 3DS 端 | 无（全部跳过，符合"老大三没有的不做"） |
+
+### 9.5 动效减弱
+
+尊重系统 / 应用的「减少动态效果」设置：开启后仅保留 `fade` 与 `typewriter` 直通，位移 / 抖动 / 缩放类跳过。

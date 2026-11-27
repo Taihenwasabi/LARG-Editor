@@ -24,6 +24,8 @@ export '../engine/engine_log.dart';
 export '../engine/model/asset_info.dart';
 export '../engine/model/asset_ref.dart';
 export '../engine/model/check.dart';
+export '../engine/model/effects.dart';
+export '../engine/fx_engine.dart';
 export '../engine/model/game_package.dart';
 export '../engine/model/manifest.dart';
 export '../engine/model/package_summary.dart';

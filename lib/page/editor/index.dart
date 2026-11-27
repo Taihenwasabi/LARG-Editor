@@ -12,6 +12,8 @@ import 'package:larg_editor/component/engine.dart';
 import 'package:larg_editor/engine/pack_doctor.dart' as doctor;
 import 'package:larg_editor/engine/package_io.dart';
 import 'package:larg_editor/i18n/i18n.dart';
+import 'package:larg_editor/page/editor/card_tree.dart';
+import 'package:larg_editor/page/editor/desktop_workbench.dart';
 import 'package:larg_editor/page/editor/editor_models.dart';
 import 'package:larg_editor/page/editor/editor_media.dart';
 import 'package:larg_editor/page/editor/item_tab.dart';
@@ -49,6 +51,15 @@ class _EditorPageState extends State<EditorPage>
 
   int _packVersion = 0;
   Timer? _saveTimer;
+
+  // 桌面工作台状态（手机模式不使用，但保留以便无缝切换）
+  WorkbenchSection _section = WorkbenchSection.stage;
+  int? _selectedStage;
+  int? _selectedLine;
+  int? _selectedCheckpoint;
+
+  bool _isDesktop(BuildContext context) =>
+      MediaQuery.sizeOf(context).width >= 900;
 
   @override
   void initState() {
@@ -575,6 +586,268 @@ class _EditorPageState extends State<EditorPage>
 
   @override
   Widget build(BuildContext context) {
+    return _isDesktop(context) ? _buildDesktop() : _buildMobile();
+  }
+
+  // ---------------------------------------------------------------- 桌面工作台
+  Widget _buildDesktop() {
+    final callbacks = WorkbenchCallbacks(
+      onUser: _showUser,
+      onSettings: _openSettings,
+      onNew: _newPack,
+      onOpen: _importFromFolder,
+      onSave: _commitDraft,
+      onUndo: () => _snack('undo（沿用草稿栈）'),
+      onRedo: () => _snack('redo（沿用草稿栈）'),
+      onDoctor: _doctor,
+      onScript: _openScript,
+      onExport: _export,
+      onExportWeb: _exportWeb,
+      onImport: _import,
+      onRecent: _showRecent,
+      onClear: _clearDraft,
+      onRestore: _restorePrev,
+    );
+    return _loading
+        ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+        : ListenableBuilder(
+            listenable: _pack,
+            builder: (context, _) => DesktopWorkbench(
+              pack: _pack,
+              callbacks: callbacks,
+              section: _section,
+              onSectionChanged: (s) => setState(() => _section = s),
+              selectedStage: _selectedStage,
+              selectedLine: _selectedLine,
+              selectedCheckpoint: _selectedCheckpoint,
+              onSelectStage: (v) => setState(() => _selectedStage = v),
+              onSelectLine: (v) => setState(() => _selectedLine = v),
+              contentBuilder: _workbenchContent,
+              inspectorBuilder: _buildInspector,
+              previewBuilder: (stage, line) => EditorPreviewPage(
+                pack: _pack,
+                embedded: true,
+                jumpStage: stage,
+                jumpLine: line,
+              ),
+            ),
+          );
+  }
+
+  Widget _workbenchContent(WorkbenchSection section) {
+    switch (section) {
+      case WorkbenchSection.info:
+        return _responsive(ManifestTab(key: ValueKey('m$_packVersion'), pack: _pack));
+      case WorkbenchSection.stage:
+        return CardTree(
+          pack: _pack,
+          selected: _selectedStage == null
+              ? null
+              : CardSelection(
+                  _selectedStage!,
+                  line: _selectedLine,
+                  checkpoint: _selectedCheckpoint,
+                ),
+          onSelect: (sel) => setState(() {
+            _selectedStage = sel.stage;
+            _selectedLine = sel.line;
+            _selectedCheckpoint = sel.checkpoint;
+          }),
+          onAddStage: _addStage,
+        );
+      case WorkbenchSection.item:
+        return _responsive(ItemTab(key: ValueKey('i$_packVersion'), pack: _pack));
+      case WorkbenchSection.media:
+        return _responsive(MediaTab(key: ValueKey('l$_packVersion'), pack: _pack));
+      case WorkbenchSection.doctor:
+        return _responsive(_doctorPanel());
+      case WorkbenchSection.script:
+        return _responsive(ScriptTextPage(pack: _pack));
+      case WorkbenchSection.export:
+        return _responsive(_exportPanel());
+    }
+  }
+
+  /// 编辑区（检查器）——卡片上放不下的深度字段，按选中对象切换形态。
+  Widget _buildInspector(int? stageIdx, int? lineIdx, int? cpIdx) {
+    final stage = stageIdx != null && stageIdx < _pack.stages.length
+        ? _pack.stages[stageIdx]
+        : null;
+    if (stage == null) {
+      return Center(
+        child: Text(
+          t('workbench.inspector.empty'),
+          style: TextStyle(color: Theme.of(context).colorScheme.outline),
+        ),
+      );
+    }
+    final line = lineIdx != null && lineIdx < stage.lines.length
+        ? stage.lines[lineIdx]
+        : null;
+    if (line != null) {
+      return _lineInspector(stage, line);
+    }
+    return _stageInspector(stage);
+  }
+
+  Widget _lineInspector(EditableStage stage, EditableLine line) {
+    final scheme = Theme.of(context).colorScheme;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      children: [
+        Text(
+          '${stage.id} · ${line.id}',
+          style: TextStyle(fontSize: 12, color: scheme.primary),
+        ),
+        const SizedBox(height: 8),
+        // 说话人（对白）
+        TextField(
+          controller: TextEditingController(text: line.speaker),
+          decoration: InputDecoration(labelText: t('editor.line.speaker'), isDense: true),
+          onChanged: (v) => line.speaker = v,
+        ),
+        const SizedBox(height: 8),
+        // 行 id
+        TextField(
+          controller: TextEditingController(text: line.id),
+          decoration: InputDecoration(labelText: t('editor.line.id'), isDense: true),
+          onChanged: (v) => line.id = v,
+        ),
+        const SizedBox(height: 8),
+        // 类型分段
+        SegmentedButton<String>(
+          segments: [
+            ButtonSegment(value: 'narration', label: Text(t('editor.line.narration'))),
+            ButtonSegment(value: 'dialogue', label: Text(t('editor.line.dialogue'))),
+          ],
+          selected: {line.type == 'dialogue' ? 'dialogue' : 'narration'},
+          onSelectionChanged: (s) => setState(() => line.type = s.first),
+        ),
+        const SizedBox(height: 12),
+        Text(t('editor.line.media'), style: TextStyle(fontSize: 12, color: scheme.outline)),
+        const SizedBox(height: 4),
+        _mediaSlotField(t('editor.line.image'), line.image, (v) => line.image = v),
+        _mediaSlotField(t('editor.line.audio'), line.audio, (v) => line.audio = v),
+        _mediaSlotField(t('editor.line.video'), line.video, (v) => line.video = v),
+        _mediaSlotField(t('editor.line.background'), line.background, (v) => line.background = v),
+      ],
+    );
+  }
+
+  Widget _mediaSlotField(String label, String value, ValueChanged<String> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: TextField(
+        controller: TextEditingController(text: value),
+        decoration: InputDecoration(labelText: label, isDense: true),
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Widget _stageInspector(EditableStage stage) {
+    final scheme = Theme.of(context).colorScheme;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      children: [
+        Text('${stage.id} · ${stage.fileName}',
+            style: TextStyle(fontSize: 12, color: scheme.primary)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: TextEditingController(text: stage.background ?? ''),
+          decoration: InputDecoration(labelText: t('editor.line.background'), isDense: true),
+          onChanged: (v) => stage.background = v.isEmpty ? null : v,
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: TextEditingController(text: stage.bgm ?? ''),
+          decoration: InputDecoration(labelText: t('editor.stage.bgm'), isDense: true),
+          onChanged: (v) => stage.bgm = v.isEmpty ? null : v,
+        ),
+      ],
+    );
+  }
+
+  Widget _doctorPanel() {
+    // 复用 _doctor 的判定数据，展示为简单列表（详细交互下一轮接跳转）
+    final zipBytes = _encodeZip();
+    if (zipBytes == null) return const SizedBox.shrink();
+    final report = _runDoctor(zipBytes);
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(
+          report.hasBlocking
+              ? t('doctor.fail').replaceAll('{n}', '${report.issues.length}')
+              : t('doctor.pass'),
+          style: TextStyle(color: report.hasBlocking ? Colors.red : Colors.green),
+        ),
+        const SizedBox(height: 8),
+        for (final issue in report.issues)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text('• ${issue.message}${issue.source == null ? '' : '（${issue.source}）'}'),
+          ),
+      ],
+    );
+  }
+
+  doctor.PackReport _runDoctor(Uint8List zipBytes) {
+    try {
+      final files = unpackZipBytes(zipBytes);
+      final source = MemoryPackageSource(root: 'memory', files: {'pack': files});
+      final engine = GameEngine(tokenProvider: InMemoryTokenProvider('doctor'))
+        ..useSource(source);
+      final names = engine.listPackages();
+      if (names.isEmpty) {
+        return doctor.PackReport([
+          const doctor.PackIssue('pack.empty', 'no package', source: null),
+        ]);
+      }
+      return doctor.PackDoctor.inspect(engine.load(names.first));
+    } on PackageFormatException catch (e) {
+      return doctor.PackReport([doctor.PackIssue('pack.bad', e.message)]);
+    }
+  }
+
+  Widget _exportPanel() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        ListTile(
+          leading: const Icon(Icons.file_download_outlined),
+          title: Text(t('editor.export')),
+          onTap: _export,
+        ),
+        ListTile(
+          leading: const Icon(Icons.public),
+          title: Text(t('editor.webExport.menu')),
+          onTap: _exportWeb,
+        ),
+      ],
+    );
+  }
+
+  void _addStage() {
+    setState(() {
+      _pack.addStage();
+      _selectedStage = _pack.stages.isEmpty ? null : _pack.stages.length - 1;
+      _selectedLine = null;
+      _selectedCheckpoint = null;
+    });
+  }
+
+  void _showUser() {
+    // 无后端：用户 = 作者身份。完整作者面板在用户入口迭代中接入。
+    _snack(t('nav.user'));
+  }
+
+  void _openSettings() {
+    _snack(t('nav.settings'));
+  }
+
+  // ---------------------------------------------------------------- 手机模式（原样保留，quq1 复用）
+  Widget _buildMobile() {
     return Scaffold(
       appBar: AppBar(
         title: Text(t('editor.title')),

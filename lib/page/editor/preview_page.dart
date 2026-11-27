@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:larg_editor/component/engine.dart';
+import 'package:larg_editor/component/fx_player.dart';
 import 'package:larg_editor/component/media_preview_dialog.dart';
-import 'package:larg_editor/engine/model/scene.dart';
 import 'package:larg_editor/i18n/i18n.dart';
 import 'package:larg_editor/page/editor/editor_media.dart';
 import 'package:larg_editor/page/editor/editor_models.dart';
@@ -12,7 +13,20 @@ const Color _accent = CanvasSkin.accent;
 class EditorPreviewPage extends StatefulWidget {
   final EditablePack pack;
 
-  const EditorPreviewPage({super.key, required this.pack});
+  /// 嵌入桌面工作台面板时为 true：不套 Scaffold/AppBar，直接铺满父容器。
+  final bool embedded;
+
+  /// 从工作台点卡片跳到某关某行（0-based）。
+  final int? jumpStage;
+  final int? jumpLine;
+
+  const EditorPreviewPage({
+    super.key,
+    required this.pack,
+    this.embedded = false,
+    this.jumpStage,
+    this.jumpLine,
+  });
 
   @override
   State<EditorPreviewPage> createState() => _EditorPreviewPageState();
@@ -37,6 +51,29 @@ class _EditorPreviewPageState extends State<EditorPreviewPage> {
   void initState() {
     super.initState();
     _reset();
+    _applyJump();
+  }
+
+  @override
+  void didUpdateWidget(covariant EditorPreviewPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.jumpStage != oldWidget.jumpStage ||
+        widget.jumpLine != oldWidget.jumpLine) {
+      _applyJump();
+    }
+  }
+
+  void _applyJump() {
+    final si = widget.jumpStage;
+    if (si == null || si < 0 || si >= _pack.stages.length) return;
+    setState(() {
+      _stageIndex = si;
+      _lineIndex = (widget.jumpLine ?? 0).clamp(
+        0,
+        _pack.stages[si].lines.length,
+      );
+      _ended = false;
+    });
   }
 
   void _reset() {
@@ -127,6 +164,18 @@ class _EditorPreviewPageState extends State<EditorPreviewPage> {
     final line = _lineIndex < lines.length ? lines[_lineIndex] : null;
     final scene = _sceneAt(line == null ? lines.length : _lineIndex);
     final reading = !_atChoices && !_ended && line != null;
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    // 当前行的 enter 特效（仅 screen/background 类作用于整帧；立绘/文本类的
+    // 精细效果由各自图层未来接入，这里先把最直观的整帧动效跑通）。
+    final frameFx = line?.fx
+            .where(
+              (f) =>
+                  f.isRenderable &&
+                  f.trigger == FxTrigger.enter &&
+                  (f.target.raw == 'screen' || f.target.raw == 'background'),
+            )
+            .toList() ??
+        const <FxSpec>[];
     final dark = Theme.of(context).copyWith(
       brightness: Brightness.dark,
       colorScheme: ColorScheme.fromSeed(
@@ -134,36 +183,55 @@ class _EditorPreviewPageState extends State<EditorPreviewPage> {
         brightness: Brightness.dark,
       ),
     );
+    final content = _pack.stages.isEmpty
+        ? Center(
+            child: Text(
+              t('editor.preview.empty'),
+              style: const TextStyle(color: CanvasSkin.white70),
+            ),
+          )
+        : GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _editing || _atChoices || _ended ? null : _advance,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                FxPlayer(
+                  key: ValueKey('fx-${stage?.id}-$_lineIndex'),
+                  specs: frameFx,
+                  reduceMotion: reduceMotion,
+                  child: _sceneLayer(scene),
+                ),
+                const Positioned.fill(child: _BottomScrim()),
+                if (stage != null) _progressBar(lines),
+                if (reading) _lineImageLayer(line),
+                if (reading) _topMediaChips(line),
+                if (reading) _bottomOverlay(line, lines.length),
+                if (_atChoices) _choices(stage!.checkpoints),
+                if (_ended) _endLayer(),
+                if (_debug) _debugPanel(stage),
+              ],
+            ),
+          );
+    // 过场特效：包住整帧，key 绑关卡 id —— 切关时重播。
+    final withTransition = FxPlayer(
+      key: ValueKey('transition-${stage?.id}'),
+      specs: stage?.transitionIn ?? const <FxSpec>[],
+      reduceMotion: reduceMotion,
+      child: content,
+    );
+    if (widget.embedded) {
+      return Theme(
+        data: dark,
+        child: ColoredBox(color: CanvasSkin.backdrop, child: withTransition),
+      );
+    }
     return Theme(
       data: dark,
       child: Scaffold(
         backgroundColor: CanvasSkin.backdrop,
         appBar: _appBar(stage, lines),
-        body: _pack.stages.isEmpty
-            ? Center(
-                child: Text(
-                  t('editor.preview.empty'),
-                  style: const TextStyle(color: CanvasSkin.white70),
-                ),
-              )
-            : GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _editing || _atChoices || _ended ? null : _advance,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _sceneLayer(scene),
-                    const Positioned.fill(child: _BottomScrim()),
-                    if (stage != null) _progressBar(lines),
-                    if (reading) _lineImageLayer(line),
-                    if (reading) _topMediaChips(line),
-                    if (reading) _bottomOverlay(line, lines.length),
-                    if (_atChoices) _choices(stage!.checkpoints),
-                    if (_ended) _endLayer(),
-                    if (_debug) _debugPanel(stage),
-                  ],
-                ),
-              ),
+        body: withTransition,
       ),
     );
   }
