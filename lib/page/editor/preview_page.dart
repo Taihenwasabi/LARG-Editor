@@ -3,8 +3,10 @@ import 'package:larg_editor/component/engine.dart';
 import 'package:larg_editor/component/fx_player.dart';
 import 'package:larg_editor/component/media_preview_dialog.dart';
 import 'package:larg_editor/i18n/i18n.dart';
+import 'package:larg_editor/model/check_ai_config.dart';
 import 'package:larg_editor/page/editor/editor_media.dart';
 import 'package:larg_editor/page/editor/editor_models.dart';
+import 'package:larg_editor/page/editor/submit_panel.dart';
 import 'package:larg_editor/theme/canvas_skin.dart';
 import 'package:larg_editor/theme/tokens.dart';
 
@@ -103,7 +105,40 @@ class _EditorPreviewPageState extends State<EditorPreviewPage> {
     setState(() => _lineIndex = stage.lines.length);
   }
 
-  void _choose(EditableCheckpoint cp) {
+  Future<void> _choose(EditableCheckpoint cp) async {
+    // 带校验的节点：先走提交面板，通过才继续。
+    final checkId = _stripCheckExt(cp.check);
+    if (checkId != null) {
+      final check = _pack.checks.where((c) => c.id == checkId).firstOrNull;
+      if (check == null) {
+        // 校验引用缺失：直接告知，不当成自动通过。
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(SnackBar(content: Text('这张卡引用了不存在的校验「$checkId」')));
+        }
+        return;
+      }
+      final engineCheck = Check(
+        id: check.id,
+        type: check.type,
+        verify: check.verify,
+        params: check.params,
+      );
+      final needText = engineCheck.submitRequirement.needText;
+      final passed = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => SubmitPanel(
+          pack: _pack,
+          check: check,
+          question: cp.text,
+          needText: needText,
+        ),
+      );
+      if (passed != true) return;
+    }
+    if (!mounted) return;
     for (final entry in cp.grant.entries) {
       _values[entry.key] = (_values[entry.key] ?? 0) + entry.value;
     }
@@ -121,6 +156,18 @@ class _EditorPreviewPageState extends State<EditorPreviewPage> {
       _stageIndex = index;
       _lineIndex = 0;
     });
+  }
+
+  /// 去掉校验引用里的扩展名（`check1.json` → `check1`）。
+  String? _stripCheckExt(String raw) {
+    final v = raw.trim();
+    if (v.isEmpty) return null;
+    final slash = v.lastIndexOf('/');
+    var name = slash >= 0 ? v.substring(slash + 1) : v;
+    if (name.toLowerCase().endsWith('.json')) {
+      name = name.substring(0, name.length - 5);
+    }
+    return name.isEmpty ? null : name;
   }
 
   bool _met(String condition) {
@@ -196,11 +243,13 @@ class _EditorPreviewPageState extends State<EditorPreviewPage> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                FxPlayer(
-                  key: ValueKey('fx-${stage?.id}-$_lineIndex'),
-                  specs: frameFx,
-                  reduceMotion: reduceMotion,
-                  child: _sceneLayer(scene),
+                Positioned.fill(
+                  child: FxPlayer(
+                    key: ValueKey('fx-${stage?.id}-$_lineIndex'),
+                    specs: frameFx,
+                    reduceMotion: reduceMotion,
+                    child: _sceneLayer(scene),
+                  ),
                 ),
                 const Positioned.fill(child: _BottomScrim()),
                 if (stage != null) _progressBar(lines),
@@ -335,10 +384,9 @@ class _EditorPreviewPageState extends State<EditorPreviewPage> {
   }
 
   Widget _sceneLayer(_Scene scene) {
-    return Positioned.fill(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
+    return Stack(
+      fit: StackFit.expand,
+      children: [
           if (scene.background.isNotEmpty)
             editorAssetImage(
               context,
@@ -383,7 +431,6 @@ class _EditorPreviewPageState extends State<EditorPreviewPage> {
               ),
             ),
         ],
-      ),
     );
   }
 

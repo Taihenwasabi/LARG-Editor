@@ -105,7 +105,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   bool _toolbarVisible = true;
 
   // 尺寸比例：树占上半区宽度、编辑区占整体高度
-  double _treeFraction = 0.5;
+  double _treeFraction = 0.33;
   double _inspectorFraction = 0.26;
 
   static const double _navWidth = 64;
@@ -196,7 +196,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
           const SizedBox(height: 8),
           _navButton(
             icon: Icons.person_outline,
-            label: t('nav.user'),
+            label: t('editor.nav.user'),
             selected: false,
             onTap: widget.callbacks.onUser,
           ),
@@ -205,7 +205,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
           const Spacer(),
           _navButton(
             icon: Icons.settings_outlined,
-            label: t('nav.settings'),
+            label: t('editor.nav.settings'),
             selected: false,
             onTap: widget.callbacks.onSettings,
           ),
@@ -218,13 +218,13 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   List<Widget> _sectionButtons() {
     // 内容与工具同列（用户拍板：条目少，不分组）。
     const items = <(WorkbenchSection, IconData, String)>[
-      (WorkbenchSection.info, Icons.info_outline, 'nav.info'),
-      (WorkbenchSection.stage, Icons.account_tree_outlined, 'nav.stage'),
-      (WorkbenchSection.item, Icons.backpack_outlined, 'nav.item'),
-      (WorkbenchSection.media, Icons.perm_media_outlined, 'nav.media'),
-      (WorkbenchSection.doctor, Icons.health_and_safety_outlined, 'nav.doctor'),
-      (WorkbenchSection.script, Icons.article_outlined, 'nav.script'),
-      (WorkbenchSection.export, Icons.file_download_outlined, 'nav.export'),
+      (WorkbenchSection.info, Icons.info_outline, 'editor.nav.info'),
+      (WorkbenchSection.stage, Icons.account_tree_outlined, 'editor.nav.stage'),
+      (WorkbenchSection.item, Icons.backpack_outlined, 'editor.nav.item'),
+      (WorkbenchSection.media, Icons.perm_media_outlined, 'editor.nav.media'),
+      (WorkbenchSection.doctor, Icons.health_and_safety_outlined, 'editor.nav.doctor'),
+      (WorkbenchSection.script, Icons.article_outlined, 'editor.nav.script'),
+      (WorkbenchSection.export, Icons.file_download_outlined, 'editor.nav.export'),
     ];
     return [
       for (final e in items)
@@ -310,7 +310,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
           const Spacer(),
           _toolButton(
             Icons.account_tree_outlined,
-            t('workbench.showTree'),
+            t('editor.workbench.showTree'),
             () => setState(() {
               _showTree = !_showTree;
               _savePrefs();
@@ -319,7 +319,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
           ),
           _toolButton(
             Icons.play_circle_outline,
-            t('workbench.showPreview'),
+            t('editor.workbench.showPreview'),
             () => setState(() {
               _showPreview = !_showPreview;
               _savePrefs();
@@ -328,7 +328,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
           ),
           _toolButton(
             Icons.tune_outlined,
-            t('workbench.showInspector'),
+            t('editor.workbench.showInspector'),
             () => setState(() {
               _showInspector = !_showInspector;
               _savePrefs();
@@ -337,7 +337,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
           ),
           _toolButton(
             Icons.fullscreen_outlined,
-            t('workbench.focus'),
+            t('editor.workbench.focus'),
             _focusMode,
           ),
           _toolButton(Icons.expand_less, t('common.collapse'), () {
@@ -383,7 +383,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   // ---------- 上半区：树 | 预览 ----------
   Widget _upper() {
     if (!_showTree && !_showPreview) {
-      return Center(child: Text(t('workbench.showTree')));
+      return Center(child: Text(t('editor.workbench.showTree')));
     }
     if (!_showTree) return _previewPane();
     if (!_showPreview) return _treePane();
@@ -405,11 +405,21 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
     );
   }
 
-  Widget _treePane() => widget.contentBuilder(widget.section);
+  /// 树面板：统一深色底，禁止任何内容组件自带浅色底造成突兀色块。
+  Widget _treePane() {
+    final scheme = Theme.of(context).colorScheme;
+    return ColoredBox(
+      color: scheme.surface,
+      child: widget.contentBuilder(widget.section),
+    );
+  }
 
-  Widget _previewPane() => widget.previewBuilder(
-        widget.selectedStage,
-        widget.selectedLine,
+  Widget _previewPane() => ColoredBox(
+        color: Theme.of(context).colorScheme.surface,
+        child: widget.previewBuilder(
+          widget.selectedStage,
+          widget.selectedLine,
+        ),
       );
 
   // ---------- 隐形拖拽手柄 ----------
@@ -421,12 +431,12 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
         onHorizontalDragUpdate: (d) {
           final w = MediaQuery.sizeOf(context).width - _navWidth;
           setState(() {
-            _treeFraction = (_treeFraction + d.delta.dx / w).clamp(0.25, 0.75);
+            _treeFraction = (_treeFraction + d.delta.dx / w).clamp(0.2, 0.6);
           });
         },
         onHorizontalDragEnd: (_) => _savePrefs(),
         onDoubleTap: () {
-          setState(() => _treeFraction = 0.5);
+          setState(() => _treeFraction = 0.33);
           _savePrefs();
         },
         child: Container(
@@ -503,7 +513,7 @@ class _DesktopWorkbenchState extends State<DesktopWorkbench> {
   String _breadcrumb() {
     final si = widget.selectedStage;
     if (si == null || si >= widget.pack.stages.length) {
-      return '${t('workbench.inspector')} · ${t('workbench.inspector.empty')}';
+      return '${t('editor.workbench.inspector')} · ${t('editor.workbench.inspector.empty')}';
     }
     final stage = widget.pack.stages[si];
     final li = widget.selectedLine;

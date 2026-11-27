@@ -22,6 +22,7 @@ class CardTree extends StatelessWidget {
   final CardSelection? selected;
   final ValueChanged<CardSelection> onSelect;
   final VoidCallback? onAddStage;
+  final void Function(EditableStage stage)? onAddLineFor;
 
   /// 每关自检问题数（文件名 → 条数），来自引擎 PackDoctor 的判定。
   final Map<String, int> issuesByFile;
@@ -32,6 +33,7 @@ class CardTree extends StatelessWidget {
     required this.selected,
     required this.onSelect,
     this.onAddStage,
+    this.onAddLineFor,
     this.issuesByFile = const {},
   });
 
@@ -70,6 +72,9 @@ class CardTree extends StatelessWidget {
           selected: selected,
           onSelect: onSelect,
           issueCount: issuesByFile[pack.stages[i].fileName] ?? 0,
+          onAddLine: onAddLineFor == null
+              ? null
+              : () => onAddLineFor!(pack.stages[i]),
         );
       },
     );
@@ -82,6 +87,7 @@ class _StageNode extends StatefulWidget {
   final CardSelection? selected;
   final ValueChanged<CardSelection> onSelect;
   final int issueCount;
+  final VoidCallback? onAddLine;
 
   const _StageNode({
     required this.stage,
@@ -89,6 +95,7 @@ class _StageNode extends StatefulWidget {
     required this.selected,
     required this.onSelect,
     this.issueCount = 0,
+    this.onAddLine,
   });
 
   @override
@@ -111,7 +118,8 @@ class _StageNodeState extends State<_StageNode> {
     final scheme = Theme.of(context).colorScheme;
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
-      elevation: _isSelected ? 2 : 0,
+      elevation: 0,
+      color: scheme.surfaceContainerHighest,
       shape: RoundedRectangleBorder(
         borderRadius: FiftyRadii.mdRadius,
         side: BorderSide(
@@ -183,6 +191,37 @@ class _StageNodeState extends State<_StageNode> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (widget.stage.lines.isEmpty &&
+                      widget.stage.checkpoints.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, bottom: 2),
+                      child: Row(
+                        children: [
+                          Text(
+                            '这一关还是空的',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: scheme.outline,
+                            ),
+                          ),
+                          const Spacer(),
+                          TextButton.icon(
+                            onPressed: widget.onAddLine,
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                            ),
+                            icon: const Icon(Icons.add, size: 14),
+                            label: const Text(
+                              '加第一句',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ..._lineNodes(),
                   ..._checkpointNodes(),
                 ],
@@ -278,14 +317,23 @@ class _InlineTitleState extends State<_InlineTitle> {
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: _ctrl,
-      decoration: const InputDecoration(
-        isDense: true,
-        border: InputBorder.none,
+    return SizedBox(
+      height: 32,
+      child: TextField(
+        controller: _ctrl,
+        decoration: InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 6),
+          hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
+        ),
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.onSurface,
+          fontSize: 13,
+        ),
+        onChanged: (v) => widget.stage.id = v,
       ),
-      style: const TextStyle(fontWeight: FontWeight.w600),
-      onChanged: (v) => widget.stage.id = v,
     );
   }
 }

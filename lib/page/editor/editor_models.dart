@@ -727,7 +727,15 @@ class EditablePack extends ChangeNotifier {
       gameName: '未命名游戏',
       createTime: _today(),
     ),
-    stages: [EditableStage(fileName: '1start.json', id: 's1')],
+    stages: [
+      EditableStage(
+        fileName: '1start.json',
+        id: 's1',
+        lines: [
+          EditableLine(id: 'l1', type: 'narration', text: '故事从这里开始。'),
+        ],
+      ),
+    ],
   );
 
   static String _today() {
@@ -1339,6 +1347,43 @@ class EditablePack extends ChangeNotifier {
   void addStage() {
     stages.add(EditableStage(fileName: '', id: _uniqueStageId()));
     renumberStages();
+    notify();
+  }
+
+  /// 在关卡末尾追加一句旁白（编号自动取未占用的 lineId）。
+  EditableLine addLine(EditableStage stage) {
+    final used = {for (final l in stage.lines) l.id};
+    var n = stage.lines.length + 1;
+    while (used.contains('l$n')) {
+      n++;
+    }
+    final line = EditableLine(id: 'l$n', type: 'narration', text: '');
+    stage.lines.add(line);
+    notify();
+    return line;
+  }
+
+  /// 在关卡末尾追加一个选项（默认跳同一关，避免立刻断链）。
+  EditableCheckpoint addCheckpoint(EditableStage stage) {
+    final cp = EditableCheckpoint(
+      text: '新的选项',
+      next: stage.id,
+      reward: 0,
+    );
+    stage.checkpoints.add(cp);
+    notify();
+    return cp;
+  }
+
+  void removeLine(EditableStage stage, int index) {
+    if (index < 0 || index >= stage.lines.length) return;
+    stage.lines.removeAt(index);
+    notify();
+  }
+
+  void removeCheckpoint(EditableStage stage, int index) {
+    if (index < 0 || index >= stage.checkpoints.length) return;
+    stage.checkpoints.removeAt(index);
     notify();
   }
 

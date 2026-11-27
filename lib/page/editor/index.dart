@@ -24,6 +24,7 @@ import 'package:larg_editor/page/editor/preview_page.dart';
 import 'package:larg_editor/page/editor/script_import.dart';
 import 'package:larg_editor/page/editor/script_text_page.dart';
 import 'package:larg_editor/page/editor/stage_tab.dart';
+import 'package:larg_editor/page/settings/index.dart';
 import 'package:larg_editor/service/pack_dir_source.dart';
 import 'package:larg_editor/service/share_pack.dart';
 import 'package:larg_editor/service/web_export.dart';
@@ -62,6 +63,70 @@ class _EditorPageState extends State<EditorPage>
   // 每关自检问题数（stage 文件名 → 条数）。保存/导入后异步刷新，
   // 判定与「检查」页共用引擎的 PackDoctor，不另写一套。
   final Map<String, int> _issuesByFile = {};
+
+  // 撤销/重做：存整包草稿 JSON 快照。改动去抖后压栈，栈深上限 60。
+  final List<String> _undoStack = [];
+  final List<String> _redoStack = [];
+  String? _lastSnapshot;
+  bool _restoring = false;
+
+  void _commitSnapshot() {
+    if (_restoring) return;
+    final now = _pack.toDraftJson();
+    final prev = _lastSnapshot;
+    _lastSnapshot = now;
+    if (prev == null || prev == now) return;
+    _undoStack.add(prev);
+    if (_undoStack.length > 60) _undoStack.removeAt(0);
+    _redoStack.clear();
+  }
+
+  void _undo() {
+    if (_undoStack.isEmpty) {
+      _snack('没有可以撤销的操作');
+      return;
+    }
+    _restoring = true;
+    final current = _pack.toDraftJson();
+    final target = _undoStack.removeLast();
+    _redoStack.add(current);
+    _restoreSnapshot(target);
+    _lastSnapshot = target;
+    _restoring = false;
+  }
+
+  void _redo() {
+    if (_redoStack.isEmpty) {
+      _snack('没有可以重做的操作');
+      return;
+    }
+    _restoring = true;
+    final current = _pack.toDraftJson();
+    final target = _redoStack.removeLast();
+    _undoStack.add(current);
+    _restoreSnapshot(target);
+    _lastSnapshot = target;
+    _restoring = false;
+  }
+
+  void _restoreSnapshot(String json) {
+    final stage = _selectedStage;
+    final line = _selectedLine;
+    final cp = _selectedCheckpoint;
+    _swapPack(EditablePack.fromDraftJson(json));
+    setState(() {
+      _selectedStage = stage != null && stage < _pack.stages.length
+          ? stage
+          : (_pack.stages.isEmpty ? null : 0);
+      final st = _selectedStage == null ? null : _pack.stages[_selectedStage!];
+      _selectedLine = st != null && line != null && line < st.lines.length
+          ? line
+          : null;
+      _selectedCheckpoint =
+          st != null && cp != null && cp < st.checkpoints.length ? cp : null;
+    });
+    unawaited(_saveDraft());
+  }
 
   Future<void> _refreshIssues() async {
     final zip = _encodeZip();
@@ -115,11 +180,18 @@ class _EditorPageState extends State<EditorPage>
     _attach(_pack);
     _packVersion++;
 
+    // 打开包立刻选中第一关：右侧预览与底部编辑区才有内容，
+    // 否则新用户看到的是三个空白面板。
+    _selectedStage = next.stages.isEmpty ? null : 0;
+    _selectedLine = null;
+    _selectedCheckpoint = null;
+
     unawaited(hydratePackMedia(next));
     if (mounted) setState(() => _loading = false);
   }
 
   void _scheduleSave() {
+    _commitSnapshot();
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 700), _saveDraft);
   }
@@ -622,8 +694,8 @@ class _EditorPageState extends State<EditorPage>
       onNew: _newPack,
       onOpen: _importFromFolder,
       onSave: _commitDraft,
-      onUndo: () => _snack('undo（沿用草稿栈）'),
-      onRedo: () => _snack('redo（沿用草稿栈）'),
+      onUndo: _undo,
+      onRedo: _redo,
       onDoctor: _doctor,
       onScript: _openScript,
       onExport: _export,
@@ -680,6 +752,7 @@ class _EditorPageState extends State<EditorPage>
           }),
           issuesByFile: _issuesByFile,
           onAddStage: _addStage,
+          onAddLineFor: _addLine,
         );
       case WorkbenchSection.item:
         return _responsive(ItemTab(key: ValueKey('i$_packVersion'), pack: _pack));
@@ -702,7 +775,7 @@ class _EditorPageState extends State<EditorPage>
     if (stage == null) {
       return Center(
         child: Text(
-          t('workbench.inspector.empty'),
+          t('editor.workbench.inspector.empty'),
           style: TextStyle(color: Theme.of(context).colorScheme.outline),
         ),
       );
@@ -710,9 +783,11 @@ class _EditorPageState extends State<EditorPage>
     final line = lineIdx != null && lineIdx < stage.lines.length
         ? stage.lines[lineIdx]
         : null;
-    if (line != null) {
-      return _lineInspector(stage, line);
-    }
+    if (line != null) return _lineInspector(stage, line);
+    final cp = cpIdx != null && cpIdx < stage.checkpoints.length
+        ? stage.checkpoints[cpIdx]
+        : null;
+    if (cp != null) return _checkpointInspector(stage, cp);
     return _stageInspector(stage);
   }
 
@@ -726,6 +801,13 @@ class _EditorPageState extends State<EditorPage>
           style: TextStyle(fontSize: 12, color: scheme.primary),
         ),
         const SizedBox(height: 8),
+        // 正文（台词/旁白的核心内容）
+        LabeledField(
+          label: '正文',
+          value: line.text,
+          maxLines: 4,
+          onChanged: (v) => line.text = v,
+        ),
         // 说话人（对白）
         LabeledField(
           label: t('editor.line.speaker'),
@@ -755,6 +837,15 @@ class _EditorPageState extends State<EditorPage>
         _mediaSlotField(t('editor.line.audio'), line.audio, (v) => line.audio = v),
         _mediaSlotField(t('editor.line.video'), line.video, (v) => line.video = v),
         _mediaSlotField(t('editor.line.background'), line.background, (v) => line.background = v),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: () => _removeLine(stage, line),
+            icon: const Icon(Icons.delete_outline, size: 16),
+            label: const Text('删掉这句台词'),
+          ),
+        ),
       ],
     );
   }
@@ -780,6 +871,111 @@ class _EditorPageState extends State<EditorPage>
           label: t('editor.stage.bgm'),
           value: stage.bgm ?? '',
           onChanged: (v) => stage.bgm = v.isEmpty ? null : v,
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => _addLine(stage),
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('加一句台词'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => _addCheckpoint(stage),
+              icon: const Icon(Icons.call_split, size: 16),
+              label: const Text('加一个选项'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => _removeStage(stage),
+              icon: const Icon(Icons.delete_outline, size: 16),
+              label: const Text('删掉这关'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// 分支检查器：文案、跳转、条件、校验绑定、奖励。
+  Widget _checkpointInspector(EditableStage stage, EditableCheckpoint cp) {
+    final scheme = Theme.of(context).colorScheme;
+    final stageIds = <String>[
+      for (final s in _pack.stages)
+        if (s.id.trim().isNotEmpty) s.id,
+    ];
+    final checkIds = <String>[for (final c in _pack.checks) c.id];
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      children: [
+        Text('${stage.id} · 选项', style: TextStyle(fontSize: 12, color: scheme.primary)),
+        const SizedBox(height: 8),
+        LabeledField(
+          label: '选项文案',
+          value: cp.text,
+          onChanged: (v) => cp.text = v,
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                initialValue: cp.next.trim().isEmpty ? null : cp.next.trim(),
+                decoration: const InputDecoration(
+                  labelText: '跳转到',
+                  isDense: true,
+                ),
+                items: [
+                  const DropdownMenuItem<String>(value: '', child: Text('（结局，不跳转）')),
+                  for (final id in stageIds)
+                    DropdownMenuItem<String>(value: id, child: Text(id)),
+                ],
+                onChanged: (v) => setState(() => cp.next = v ?? ''),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                initialValue: cp.check.trim().isEmpty ? null : cp.check.trim(),
+                decoration: const InputDecoration(
+                  labelText: '绑定校验',
+                  isDense: true,
+                ),
+                items: [
+                  const DropdownMenuItem<String>(value: '', child: Text('（无）')),
+                  for (final id in checkIds)
+                    DropdownMenuItem<String>(value: id, child: Text(id)),
+                ],
+                onChanged: (v) => setState(() => cp.check = v ?? ''),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        LabeledField(
+          label: '显示条件（形如 map>=1，多个用 && 连接）',
+          value: cp.condition,
+          onChanged: (v) => cp.condition = v,
+        ),
+        LabeledField(
+          label: '奖励积分',
+          value: '${cp.reward}',
+          onChanged: (v) => cp.reward = int.tryParse(v.trim()) ?? 0,
+        ),
+        if (cp.grant.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              '通过时发放：${cp.grant.entries.map((e) => '${e.key}×${e.value}').join('、')}',
+              style: TextStyle(fontSize: 11, color: scheme.outline),
+            ),
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: () => _removeCheckpoint(stage, cp),
+            icon: const Icon(Icons.delete_outline, size: 16),
+            label: const Text('删掉这个选项'),
+          ),
         ),
       ],
     );
@@ -845,6 +1041,115 @@ class _EditorPageState extends State<EditorPage>
     );
   }
 
+  Future<void> _removeLine(EditableStage stage, EditableLine line) async {
+    final idx = stage.lines.indexOf(line);
+    if (idx < 0) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删掉这句台词？'),
+        content: Text(line.text.isEmpty ? '（这句还是空的）' : line.text),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final stageIdx = _pack.stages.indexOf(stage);
+    _pack.removeLine(stage, idx);
+    setState(() {
+      _selectedStage = stageIdx < 0 ? null : stageIdx;
+      _selectedLine = null;
+      _selectedCheckpoint = null;
+    });
+  }
+
+  Future<void> _removeCheckpoint(EditableStage stage, EditableCheckpoint cp) async {
+    final idx = stage.checkpoints.indexOf(cp);
+    if (idx < 0) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删掉这个选项？'),
+        content: Text(cp.text),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final stageIdx = _pack.stages.indexOf(stage);
+    _pack.removeCheckpoint(stage, idx);
+    setState(() {
+      _selectedStage = stageIdx < 0 ? null : stageIdx;
+      _selectedLine = null;
+      _selectedCheckpoint = null;
+    });
+  }
+
+  void _addLine(EditableStage stage) {
+    final stageIdx = _pack.stages.indexOf(stage);
+    if (stageIdx < 0) return;
+    _pack.addLine(stage);
+    setState(() {
+      _selectedStage = stageIdx;
+      _selectedLine = stage.lines.length - 1;
+      _selectedCheckpoint = null;
+    });
+  }
+
+  void _addCheckpoint(EditableStage stage) {
+    final stageIdx = _pack.stages.indexOf(stage);
+    if (stageIdx < 0) return;
+    _pack.addCheckpoint(stage);
+    setState(() {
+      _selectedStage = stageIdx;
+      _selectedLine = null;
+      _selectedCheckpoint = stage.checkpoints.length - 1;
+    });
+  }
+
+  Future<void> _removeStage(EditableStage stage) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删掉这一关？'),
+        content: Text('「${stage.displayLabel}」以及它下面的台词和选项都会被删除。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    _pack.removeStage(stage);
+    setState(() {
+      _selectedStage = _pack.stages.isEmpty ? null : 0;
+      _selectedLine = null;
+      _selectedCheckpoint = null;
+    });
+  }
+
   void _addStage() {
     setState(() {
       _pack.addStage();
@@ -856,11 +1161,13 @@ class _EditorPageState extends State<EditorPage>
 
   void _showUser() {
     // 无后端：用户 = 作者身份。完整作者面板在用户入口迭代中接入。
-    _snack(t('nav.user'));
+    _snack(t('editor.nav.user'));
   }
 
   void _openSettings() {
-    _snack(t('nav.settings'));
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
+    );
   }
 
   // ---------------------------------------------------------------- 手机模式（原样保留，quq1 复用）
