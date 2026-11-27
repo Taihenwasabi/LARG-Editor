@@ -43,3 +43,9 @@ ignore1/
 *_analysis.md
 stage_editor_preview.html
 vibe_images/
+
+# 临时诊断日志
+an.txt
+analyze.*
+bld.txt
+tst.txt

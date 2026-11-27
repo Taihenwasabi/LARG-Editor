@@ -5,11 +5,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:larg_editor/component/alert_dialog_basic.dart';
 import 'package:larg_editor/component/engine.dart';
+import 'package:larg_editor/engine/pack_doctor.dart' as doctor;
+import 'package:larg_editor/engine/package_io.dart';
 import 'package:larg_editor/i18n/i18n.dart';
 import 'package:larg_editor/page/editor/editor_models.dart';
 import 'package:larg_editor/page/editor/editor_media.dart';
@@ -220,14 +221,59 @@ class _EditorPageState extends State<EditorPage>
 
 
   Uint8List? _encodeZip() {
-    final entries = _pack.toArchiveEntries();
-    final archive = Archive();
-    for (final e in entries.entries) {
-      archive.addFile(ArchiveFile(e.key, e.value.length, e.value));
+    try {
+      return packToZipBytes(_pack.toArchiveEntries(), rootName: _pack.name);
+    } on PackageFormatException catch (e) {
+      _snack(e.message, error: true);
+      return null;
     }
-    final encoded = ZipEncoder().encode(archive);
-    if (encoded == null) return null;
-    return encoded is Uint8List ? encoded : Uint8List.fromList(encoded);
+  }
+
+  /// 检查游戏包：把当前编辑内容走真实的 zip → 引擎 → 自检链路，
+  /// 判定逻辑与命令行共用引擎侧的 [PackDoctor]，不复制。
+  Future<void> _doctor() async {
+    final zipBytes = _encodeZip();
+    if (zipBytes == null) return;
+    try {
+      final files = unpackZipBytes(zipBytes);
+      final source = MemoryPackageSource(
+        root: 'memory',
+        files: {'pack': files},
+      );
+      final engine = GameEngine(tokenProvider: InMemoryTokenProvider('doctor'))
+        ..useSource(source);
+      final names = engine.listPackages();
+      if (names.isEmpty) {
+        _snack(t('editor.import.invalid.noStage'), error: true);
+        return;
+      }
+      final report = doctor.PackDoctor.inspect(engine.load(names.first));
+      if (!mounted) return;
+      if (!report.hasBlocking) {
+        _snack(t('doctor.pass'));
+        return;
+      }
+      final lines = report.issues.map((e) {
+        final body = e.source == null
+            ? e.message
+            : '${e.message}\n${t('doctor.source').replaceAll('{file}', e.source!)}';
+        return '• $body';
+      }).join('\n\n');
+      await showAlertDialog(
+        context: context,
+        title: t('doctor.fail').replaceAll('{n}', '${report.issues.length}'),
+        content: SingleChildScrollView(child: Text(lines)),
+      );
+    } on PackageFormatException catch (e) {
+      if (!mounted) return;
+      await showAlertDialog(
+        context: context,
+        title: t('editor.import.invalid.title'),
+        content: Text(e.message),
+      );
+    } catch (e) {
+      _snack('$e', error: true);
+    }
   }
 
   Future<void> _export() async {
@@ -555,6 +601,8 @@ class _EditorPageState extends State<EditorPage>
                   _newPack();
                 case 'preview':
                   _openPreview();
+                case 'doctor':
+                  _doctor();
                 case 'script':
                   _openScript();
                 case 'scriptImport':
@@ -576,6 +624,7 @@ class _EditorPageState extends State<EditorPage>
               _menuItem('new', Icons.note_add_outlined, t('editor.new')),
               const PopupMenuDivider(),
               _menuItem('preview', Icons.play_circle_outline, t('editor.preview.title')),
+              _menuItem('doctor', Icons.health_and_safety_outlined, t('doctor.menu')),
               _menuItem('script', Icons.article_outlined, t('editor.script.title')),
               _menuItem('scriptImport', Icons.text_snippet_outlined, t('editor.scriptImport.menu')),
               const PopupMenuDivider(),

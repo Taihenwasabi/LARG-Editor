@@ -4,9 +4,9 @@ library;
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:larg_editor/engine/package_io.dart';
 import 'package:larg_editor/store/game_packages.dart';
 
 
@@ -716,22 +716,12 @@ class EditablePack extends ChangeNotifier {
   }
 
 
-  static Map<String, Uint8List> unpackZip(List<int> zipBytes) {
-    final archive = ZipDecoder().decodeBytes(zipBytes);
-    final files = <String, Uint8List>{};
-    for (final f in archive) {
-      if (!f.isFile) continue;
-      var name = f.name.replaceAll(r'\', '/');
-      while (name.startsWith('/')) {
-        name = name.substring(1);
-      }
-      final slash = name.indexOf('/');
-      if (slash <= 0) continue;
-      files[name.substring(slash + 1)] =
-          Uint8List.fromList(f.content as List<int>);
-    }
-    return files;
-  }
+  /// 解包 zip → 「相对包根路径 → 字节」。
+  ///
+  /// 路径安全规则统一由引擎侧的 [unpackZipBytes] 负责（拒绝 `..`、绝对路径、
+  /// 超大包），编辑器不另写一套。
+  static Map<String, Uint8List> unpackZip(List<int> zipBytes) =>
+      unpackZipBytes(zipBytes);
 
 
   static Map<String, Uint8List> normalizeRoot(Map<String, Uint8List> files) {
@@ -1380,6 +1370,10 @@ class EditablePack extends ChangeNotifier {
   }
 
 
+  /// 打包条目（zip 内的相对路径 → 字节）。
+  ///
+  /// 根目录名与条目键的净化由引擎侧的 [sanitizePathSegment] /
+  /// [sanitizeRelativePath] 负责，保证导出的 zip 不含穿越路径。
   Map<String, List<int>> toArchiveEntries() {
     final root = name.trim().isEmpty ? 'pack' : name.trim();
     final out = <String, List<int>>{};
