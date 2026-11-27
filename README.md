@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # LARG Editor
 
 把剧本做成 LARG 游戏包。
@@ -121,7 +120,3 @@ test/                契约测试
 gamepacks/           示例包（localDemo 最小，larg 六幕完整）
 PACK_FORMAT.md       包格式契约
 ```
-=======
-# LARG-Editor
-An New Engine for Novel Game.
->>>>>>> 4f8971e3e4c12a310e90257ff7d432ca57561408
